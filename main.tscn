@@ -1,7 +1,24 @@
 [gd_scene format=3 uid="uid://c3prlatwxbdbn"]
 
 [ext_resource type="Script" uid="uid://n8qofv3kxjcm" path="res://main.gd" id="1_ig7tw"]
-[ext_resource type="Script" path="res://PythonFiles/xr_setup.py" id="2_0xm2m"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0xm2m"]
+shading_mode = 0
+albedo_color = Color(0, 1, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_ahyua"]
+material = SubResource("StandardMaterial3D_0xm2m")
+radius = 0.05
+height = 0.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_h2yge"]
+shading_mode = 0
+albedo_color = Color(0, 0, 1, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_6xmpi"]
+material = SubResource("StandardMaterial3D_h2yge")
+radius = 0.05
+height = 0.1
 
 [node name="main" type="Node3D" unique_id=495166052]
 script = ExtResource("1_ig7tw")
@@ -12,9 +29,15 @@ script = ExtResource("1_ig7tw")
 tracker = &"left_hand"
 pose = &"aim"
 
+[node name="leftsphere" type="MeshInstance3D" parent="XROrigin3D/lefthand" unique_id=1430842702]
+mesh = SubResource("SphereMesh_ahyua")
+
 [node name="righthand" type="XRController3D" parent="XROrigin3D" unique_id=397770965]
 tracker = &"right_hand"
 pose = &"aim"
+
+[node name="rightsphere" type="MeshInstance3D" parent="XROrigin3D/righthand" unique_id=915700938]
+mesh = SubResource("SphereMesh_6xmpi")
 
 [node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D" unique_id=913497663]
 
@@ -26,18 +49,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=966763586]
 
 [node name="PythonXRManager" type="Node3D" parent="." unique_id=2046732014]
-unique_name_in_owner = false
-process_mode = 0
-process_priority = 0
-process_physics_priority = 0
-process_thread_group = 0
-physics_interpolation_mode = 0
-auto_translate_mode = 0
-editor_description = ""
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-rotation_edit_mode = 0
-rotation_order = 2
-top_level = false
-visible = true
-visibility_parent = NodePath("")
-script = ExtResource("2_0xm2m")
