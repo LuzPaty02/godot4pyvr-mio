@@ -1,6 +1,53 @@
-[gd_scene format=3 uid="uid://c3prlatwxbdbn"]
+[gd_scene format=3 uid="uid://cr5jr8mw1r81b"]
 
-[ext_resource type="Script" uid="uid://n8qofv3kxjcm" path="res://main.gd" id="1_ig7tw"]
+[ext_resource type="Script" path="res://main.gd" id="1_ig7tw"]
+[ext_resource type="Script" path="res://controller_telemetry_hud.gd" id="2_telemetry_hud"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_screen"]
+shading_mode = 0
+
+[sub_resource type="QuadMesh" id="QuadMesh_screen"]
+size = Vector2(2.8, 1.575)
+
+[sub_resource type="Environment" id="Environment_viewport"]
+background_mode = 1
+background_color = Color(0.015, 0.04, 0.08, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.25, 0.35, 0.5, 1)
+ambient_light_energy = 0.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_background"]
+shading_mode = 0
+albedo_color = Color(0.015, 0.04, 0.08, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_background"]
+size = Vector2(8, 4.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_left_arm"]
+shading_mode = 0
+albedo_color = Color(0.08, 0.65, 0.95, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_left_arm"]
+top_radius = 0.07
+bottom_radius = 0.09
+height = 1.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_right_arm"]
+shading_mode = 0
+albedo_color = Color(0.95, 0.35, 0.25, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_right_arm"]
+top_radius = 0.07
+bottom_radius = 0.09
+height = 1.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+shading_mode = 0
+albedo_color = Color(0.2, 1, 0.75, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_marker"]
+radius = 0.12
+height = 0.24
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0xm2m"]
 shading_mode = 0
@@ -22,6 +69,66 @@ height = 0.1
 
 [node name="main" type="Node3D" unique_id=495166052]
 script = ExtResource("1_ig7tw")
+
+[node name="FloatingScreen" type="MeshInstance3D" parent="." unique_id=1770101001]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, -2.8)
+material_override = SubResource("StandardMaterial3D_screen")
+mesh = SubResource("QuadMesh_screen")
+
+[node name="ScreenViewport" type="SubViewport" parent="." unique_id=1770101002]
+own_world_3d = true
+size = Vector2i(960, 540)
+render_target_update_mode = 4
+
+[node name="TelemetryHUD" type="Control" parent="ScreenViewport" unique_id=1770101013]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_telemetry_hud")
+
+[node name="ViewportWorld" type="Node3D" parent="ScreenViewport" unique_id=1770101003]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="ScreenViewport/ViewportWorld" unique_id=1770101004]
+environment = SubResource("Environment_viewport")
+
+[node name="Camera3D" type="Camera3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101005]
+current = true
+fov = 55.0
+
+[node name="Background" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101006]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3.5)
+material_override = SubResource("StandardMaterial3D_background")
+mesh = SubResource("QuadMesh_background")
+
+[node name="LeftArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
+transform = Transform3D(0.9393727, 0.3428978, 0, -0.3428978, 0.9393727, 0, 0, 0, 1, -0.65, -0.25, -1.8)
+material_override = SubResource("StandardMaterial3D_left_arm")
+mesh = SubResource("CylinderMesh_left_arm")
+
+[node name="RightArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
+transform = Transform3D(0.9393727, -0.3428978, 0, 0.3428978, 0.9393727, 0, 0, 0, 1, 0.65, -0.25, -1.8)
+material_override = SubResource("StandardMaterial3D_right_arm")
+mesh = SubResource("CylinderMesh_right_arm")
+
+[node name="LeftMarker" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101009]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, -0.75, -1.8)
+material_override = SubResource("StandardMaterial3D_marker")
+mesh = SubResource("SphereMesh_marker")
+
+[node name="RightMarker" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101010]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.88, -0.75, -1.8)
+material_override = SubResource("StandardMaterial3D_marker")
+mesh = SubResource("SphereMesh_marker")
+
+[node name="HUD" type="Label3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101011]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.55, 1.65, -2.5)
+modulate = Color(0.6, 1, 0.9, 1)
+text = "XR TELEMETRY\\nTRACKING ACTIVE"
+outline_size = 8
 
 [node name="XROrigin3D" type="XROrigin3D" parent="." unique_id=1968607024]
 
