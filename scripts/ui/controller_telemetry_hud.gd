@@ -13,9 +13,9 @@ const TEXT_COLOR := Color(0.72, 0.84, 0.92, 1.0)
 const KNOB_RADIUS := 8.0
 
 @export_category("Telemetry Ranges")
-@export_range(0.01, 10.0, 0.01, "suffix:m") var horizontal_range_m := 1.25
-@export_range(0.01, 10.0, 0.01, "suffix:m") var depth_range_m := 2.5
-@export_range(0.01, 6.283185, 0.01, "suffix:rad") var rotation_range_rad := PI
+@export_range(0.01, 10.0, 0.01, "suffix:m") var rail_translation_range_m := 2.5
+@export_range(0.01, 6.283185, 0.01, "suffix:rad") var vertical_turn_range_rad := PI
+@export_range(0.01, 6.283185, 0.01, "suffix:rad") var handle_tilt_range_rad := PI
 
 func set_controller_state(side: StringName, controller_position: Vector3, controller_rotation: Vector3) -> void:
 	if side == &"left":
@@ -48,32 +48,32 @@ func _draw_controller(
 	var vertical_bottom := size.y - 106.0
 	var arc_center := Vector2(center_x, size.y - 38.0)
 	var arc_radius := minf((right_edge - left_edge) * 0.34, 48.0)
-	var horizontal_value := _normalize_range(controller_position.x, horizontal_range_m)
-	var depth_value := _normalize_range(controller_position.z, depth_range_m)
-	var rotation_value := _normalize_range(controller_rotation.y, rotation_range_rad)
+	var rail_translation_value := _normalize_range(controller_position.z, rail_translation_range_m)
+	var vertical_turn_value := _normalize_range(controller_rotation.y, vertical_turn_range_rad)
+	var handle_tilt_value := _normalize_range(controller_rotation.x, handle_tilt_range_rad)
 
 	draw_string(ThemeDB.fallback_font, Vector2(horizontal_left, 20.0), "%s | 3-DOF" % label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, color)
 	_draw_horizontal_slider(
 		Vector2(horizontal_left, top_y),
 		Vector2(horizontal_right, top_y),
-		horizontal_value,
+		rail_translation_value,
 		color,
-		"X %.2f m" % controller_position.x
+		"RAIL %.2f m" % controller_position.z
 	)
 	_draw_vertical_slider(
 		Vector2(vertical_x, vertical_top),
 		Vector2(vertical_x, vertical_bottom),
-		depth_value,
+		vertical_turn_value,
 		color,
-		"Z %.2f m" % controller_position.z,
+		"TURN %.0f deg" % rad_to_deg(controller_rotation.y),
 		label == "RIGHT"
 	)
 	_draw_rotation_slider(
 		arc_center,
 		arc_radius,
-		rotation_value,
+		handle_tilt_value,
 		color,
-		"YAW %.0f deg" % rad_to_deg(controller_rotation.y)
+		"TILT %.0f deg" % rad_to_deg(controller_rotation.x)
 	)
 
 func _normalize_range(value: float, limit: float) -> float:
