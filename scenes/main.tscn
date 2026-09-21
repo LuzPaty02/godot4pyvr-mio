@@ -114,17 +114,25 @@ position = Vector3(0, 0, -3.5)
 mesh = SubResource("QuadMesh_background")
 material_override = SubResource("StandardMaterial3D_background")
 
-[node name="LeftArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
+[node name="LeftArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
 position = Vector3(-0.65, -0.25, -1.8)
 rotation = Vector3(0, 0, -0.35)
-mesh = SubResource("CylinderMesh_left_arm")
-material_override = SubResource("StandardMaterial3D_left_arm")
 
-[node name="RightArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
+[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101016]
+
+[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101017]
+
+[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101018]
+
+[node name="RightArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
 position = Vector3(0.65, -0.25, -1.8)
 rotation = Vector3(0, 0, 0.35)
-mesh = SubResource("CylinderMesh_right_arm")
-material_override = SubResource("StandardMaterial3D_right_arm")
+
+[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101019]
+
+[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101020]
+
+[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101021]
 
 [node name="LeftMarker" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101009]
 position = Vector3(-0.88, -0.75, -1.8)

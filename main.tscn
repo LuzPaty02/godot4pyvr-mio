@@ -104,15 +104,23 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3.5)
 material_override = SubResource("StandardMaterial3D_background")
 mesh = SubResource("QuadMesh_background")
 
-[node name="LeftArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
+[node name="LeftArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
 transform = Transform3D(0.9393727, 0.3428978, 0, -0.3428978, 0.9393727, 0, 0, 0, 1, -0.65, -0.25, -1.8)
-material_override = SubResource("StandardMaterial3D_left_arm")
-mesh = SubResource("CylinderMesh_left_arm")
 
-[node name="RightArm" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
+[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101016]
+
+[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101017]
+
+[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101018]
+
+[node name="RightArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
 transform = Transform3D(0.9393727, -0.3428978, 0, 0.3428978, 0.9393727, 0, 0, 0, 1, 0.65, -0.25, -1.8)
-material_override = SubResource("StandardMaterial3D_right_arm")
-mesh = SubResource("CylinderMesh_right_arm")
+
+[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101019]
+
+[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101020]
+
+[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101021]
 
 [node name="LeftMarker" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101009]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, -0.75, -1.8)
