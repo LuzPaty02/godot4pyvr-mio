@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/app/main.gd" id="1_ig7tw"]
 [ext_resource type="Script" path="res://scripts/ui/controller_telemetry_hud.gd" id="2_telemetry_hud"]
 [ext_resource type="Script" path="res://scripts/xr/controller_visualizer.gd" id="3_controller_visualizer"]
+[ext_resource type="Script" path="res://scripts/xr/arm_visualizer.gd" id="4_arm_visualizer"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0xm2m"]
 shading_mode = 0
@@ -117,6 +118,7 @@ material_override = SubResource("StandardMaterial3D_background")
 [node name="LeftArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
 position = Vector3(-0.65, -0.25, -1.8)
 rotation = Vector3(0, 0, -0.35)
+script = ExtResource("4_arm_visualizer")
 
 [node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101016]
 
@@ -127,6 +129,7 @@ rotation = Vector3(0, 0, -0.35)
 [node name="RightArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
 position = Vector3(0.65, -0.25, -1.8)
 rotation = Vector3(0, 0, 0.35)
+script = ExtResource("4_arm_visualizer")
 
 [node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101019]
 
