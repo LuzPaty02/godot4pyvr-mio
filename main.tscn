@@ -1,7 +1,7 @@
-[gd_scene format=3 uid="uid://cr5jr8mw1r81b"]
+[gd_scene format=3 uid="uid://ch4cvyoncpiib"]
 
-[ext_resource type="Script" path="res://main.gd" id="1_ig7tw"]
-[ext_resource type="Script" path="res://controller_telemetry_hud.gd" id="2_telemetry_hud"]
+[ext_resource type="Script" uid="uid://de768f13xfcwo" path="res://scripts/app/main.gd" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://bconox0iihjle" path="res://scripts/ui/controller_telemetry_hud.gd" id="2_telemetry_hud"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_screen"]
 shading_mode = 0
@@ -22,24 +22,6 @@ albedo_color = Color(0.015, 0.04, 0.08, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_background"]
 size = Vector2(8, 4.5)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_left_arm"]
-shading_mode = 0
-albedo_color = Color(0.08, 0.65, 0.95, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_left_arm"]
-top_radius = 0.07
-bottom_radius = 0.09
-height = 1.25
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_right_arm"]
-shading_mode = 0
-albedo_color = Color(0.95, 0.35, 0.25, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_right_arm"]
-top_radius = 0.07
-bottom_radius = 0.09
-height = 1.25
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
 shading_mode = 0

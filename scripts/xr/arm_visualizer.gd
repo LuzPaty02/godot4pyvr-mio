@@ -67,4 +67,3 @@ func _set_segment_length(segment: MeshInstance3D, length: float) -> void:
 		segment.mesh = mesh
 	mesh.height = length
 	return
-	mesh.height = length
