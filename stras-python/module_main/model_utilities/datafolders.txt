@@ -1,0 +1,8 @@
+data_folder=/home/jfernandoghe/Documents/EASE_DATASET/fernando/exp-esr14/module_main/model_utilities
+GroundTruth=GT_pos_endo.mat 
+camera_calibration=cam_calib/Stras_Calib_Results_5param.mat
+robot_seq=motor_seq.mat
+robot_config=robot_config.txt
+robot_config_left=robot_config_left.txt
+robot_config_right=robot_config_right.txt
+robot_config_endoscope=robot_config_endoscope.txt

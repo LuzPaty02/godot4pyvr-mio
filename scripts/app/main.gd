@@ -6,6 +6,9 @@ extends Node3D
 @onready var right_controller: XRController3D = $XROrigin3D/righthand
 @onready var telemetry_hud: Control = $ScreenViewport/TelemetryHUD
 @onready var controller_visualizer: Node = $ControllerVisualizer
+@onready var right_arm: Node3D = $ScreenViewport/ViewportWorld/RightArm
+@onready var left_arm: Node3D = $ScreenViewport/ViewportWorld/LeftArm
+@onready var stras_udp_client: Node = $PythonXRManager
 
 func _ready() -> void:
 	get_viewport().use_xr = true
@@ -25,6 +28,9 @@ func _ready() -> void:
 	
 	$XROrigin3D/lefthand/leftsphere.visible = false
 	$XROrigin3D/righthand/rightsphere.visible = false
+	$ScreenViewport/ViewportWorld/LeftMarker.visible = false
+	$ScreenViewport/ViewportWorld/RightMarker.visible = false
+	stras_udp_client.shapes_received.connect(_on_shapes_received)
 
 func _process(_delta: float) -> void:
 	_update_controller(left_controller, &"left")
@@ -35,3 +41,7 @@ func _update_controller(controller: XRController3D, side: StringName) -> void:
 	var controller_rotation := pose.basis.get_euler()
 	controller_rotation.y = controller_visualizer.get_continuous_yaw(side)
 	telemetry_hud.set_controller_state(side, pose.origin, controller_rotation)
+
+func _on_shapes_received(_sequence: int, right_points: PackedVector3Array, left_points: PackedVector3Array) -> void:
+	right_arm.update_polyline(right_points)
+	left_arm.update_polyline(left_points)

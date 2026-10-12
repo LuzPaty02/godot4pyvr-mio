@@ -1,12 +1,57 @@
-# Godot for VR (MQ3) visualization unde Python3.10 conda environment
+# STRAS XR arm visualization
 
-ToDo
+The `hello-world` Godot project and sibling `stras-python` Python project
+communicate over localhost UDP. Python is a separate process, not embedded in
+Godot. Godot reads both XR controller poses relative to the `Station`, maps
+each controller's bend, twist, and forward travel to a three-joint arm
+configuration, then sends a 10-value STRAS configuration to the Python service.
+The endoscope's four values are currently sent as zero. The mapping includes
+initial calibration, deadzone, gain, clamping, and low-pass filtering; pressing
+either controller's `grip_click` recalibrates both controllers.
+
+The Python service loads `XRFollowerAdapter` and the STRAS kinematic model from
+`stras-python/module_main`, computes the right and left arm shapes, and returns
+32 points per arm. Godot renders those polylines as tubes in the floating
+screen viewport. Set `send_test_configuration` on the UDP client to use the
+configured fixed test values instead of live controller-derived values; it is
+off by default.
+
+The Godot telemetry HUD visualizes controller pose data. The Python
+`XRLeaderAdapter` is not currently part of this data path: input comes directly
+from Godot's XR controllers. This is a visualization/control-mapping prototype,
+not a hardware driver; neither the Godot client nor Python service sends
+commands to a physical STRAS robot. Camera-image rendering is not part of the
+current Godot display path and the optional VTK renderer module is not included.
+
+## Run the STRAS shape service
+
+Start the Python model service in a separate terminal and leave it running while
+Godot is active:
+
+```console
+cd ~/Documents/godot/stras-python
+conda activate pyvr
+python PythonFiles/stras_udp_server.py
+```
+
+The service listens on `127.0.0.1:4242`; Godot binds `127.0.0.1:4243`. The
+server resolves its `module_main` path relative to the script, so the shown
+working directory is recommended but not required. Then launch the Godot
+project from `hello-world` in another terminal. With the default client setting,
+live controller-derived joint values are sent; enable `send_test_configuration`
+in the `PythonXRManager` node to use the fixed smoke-test configuration.
+
+## Run in XR
+
+The instructions below assume the `pyvr` conda environment, WiVRn, and a local
+Godot binary. Replace paths if your installation differs.
 
 
-Command to launch godot, under the "pyvr" conda environment.
+Launch Godot under the `pyvr` conda environment (the Python UDP service should
+also be running in its own terminal, as described above).
 
 
-**Terminal sesion 1**
+**Terminal session 1**
 
 - Step 1: Grant Device Permissions to WiVRn:
 
@@ -22,7 +67,7 @@ flatpak run \
   io.github.wivrn.wivrn
 ```
 
-**Terminal sesion 2**
+**Terminal session 2**
 
 - Step 1: Go to the path of the binaries of the godot executable:
 ```console

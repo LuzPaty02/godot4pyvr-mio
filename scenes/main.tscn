@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/ui/controller_telemetry_hud.gd" id="2_telemetry_hud"]
 [ext_resource type="Script" path="res://scripts/xr/controller_visualizer.gd" id="3_controller_visualizer"]
 [ext_resource type="Script" path="res://scripts/xr/arm_visualizer.gd" id="4_arm_visualizer"]
+[ext_resource type="Script" path="res://scripts/xr/stras_udp_client.gd" id="5_stras_udp_client"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0xm2m"]
 shading_mode = 0
@@ -36,24 +37,6 @@ size = Vector2(8, 4.5)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_background"]
 shading_mode = 0
 albedo_color = Color(0.015, 0.04, 0.08, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_left_arm"]
-top_radius = 0.07
-bottom_radius = 0.09
-height = 1.25
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_left_arm"]
-shading_mode = 0
-albedo_color = Color(0.08, 0.65, 0.95, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_right_arm"]
-top_radius = 0.07
-bottom_radius = 0.09
-height = 1.25
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_right_arm"]
-shading_mode = 0
-albedo_color = Color(0.95, 0.35, 0.25, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_marker"]
 radius = 0.12
@@ -107,8 +90,9 @@ script = ExtResource("3_controller_visualizer")
 environment = SubResource("Environment_viewport")
 
 [node name="Camera3D" type="Camera3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101005]
+position = Vector3(0, 0, 0)
 current = true
-fov = 55.0
+fov = 68.6375
 
 [node name="Background" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101006]
 position = Vector3(0, 0, -3.5)
@@ -116,26 +100,14 @@ mesh = SubResource("QuadMesh_background")
 material_override = SubResource("StandardMaterial3D_background")
 
 [node name="LeftArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101007]
-position = Vector3(-0.65, -0.25, -1.8)
-rotation = Vector3(0, 0, -0.35)
 script = ExtResource("4_arm_visualizer")
-
-[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101016]
-
-[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101017]
-
-[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/LeftArm" unique_id=1770101018]
+model_origin = Vector3(-0.45, -0.1, -1.2)
+arm_color = Color(0.2, 0.9, 1, 1)
 
 [node name="RightArm" type="Node3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101008]
-position = Vector3(0.65, -0.25, -1.8)
-rotation = Vector3(0, 0, 0.35)
 script = ExtResource("4_arm_visualizer")
-
-[node name="Segment1" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101019]
-
-[node name="Segment2" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101020]
-
-[node name="Segment3" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld/RightArm" unique_id=1770101021]
+model_origin = Vector3(0.45, -0.1, -1.2)
+arm_color = Color(1, 0.35, 0.35, 1)
 
 [node name="LeftMarker" type="MeshInstance3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101009]
 position = Vector3(-0.88, -0.75, -1.8)
@@ -146,13 +118,6 @@ material_override = SubResource("StandardMaterial3D_marker")
 position = Vector3(0.88, -0.75, -1.8)
 mesh = SubResource("SphereMesh_marker")
 material_override = SubResource("StandardMaterial3D_marker")
-
-[node name="HUD" type="Label3D" parent="ScreenViewport/ViewportWorld" unique_id=1770101011]
-position = Vector3(-1.55, 1.65, -2.5)
-text = "XR TELEMETRY\\nTRACKING ACTIVE"
-font_size = 32
-modulate = Color(0.6, 1, 0.9, 1)
-outline_size = 8
 
 
 [node name="XROrigin3D" type="XROrigin3D" parent="." unique_id=1968607024]
@@ -173,11 +138,9 @@ mesh = SubResource("SphereMesh_6xmpi")
 
 [node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D" unique_id=913497663]
 
-[node name="HUDLabel" type="Label3D" parent="XROrigin3D/XRCamera3D" unique_id=1003321546]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
-
 [node name="visualizationcontainer" type="Node3D" parent="." unique_id=754196705]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=966763586]
 
 [node name="PythonXRManager" type="Node3D" parent="." unique_id=2046732014]
+script = ExtResource("5_stras_udp_client")

@@ -1,0 +1,7 @@
+{
+  "extraPaths": [
+    "./stras-python",
+    "./stras-python/module_main",
+    "./stras-python/PythonFiles"
+  ]
+}

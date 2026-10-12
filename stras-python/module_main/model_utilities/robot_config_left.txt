@@ -1,0 +1,7 @@
+L=75,18.5,15.8
+d=3.5
+diameters=3.5, 3.5, 3.5
+n_sec=3
+dth=-10
+active=0,1,0
+pos_canal=-13.3, 6.2

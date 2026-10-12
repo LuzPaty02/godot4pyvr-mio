@@ -1,69 +1,87 @@
 extends Node3D
 
-@export_group("Arm geometry")
-@export var segment_1_length := 0.42
-@export var segment_2_unit_length := 0.08
-@export var segment_2_segments_count := 9
-@export var segment_3_length := 0.30
-@export var segment_radius := 0.08
+# The model and viewport camera should share the same origin; keep the model in
+# camera space and avoid any extra per-arm screen offsets.
+@export var tube_radius := 0.02
+@export_range(8, 24, 1) var radial_segments := 16
+@export var model_to_scene_scale := 0.02
+# Temporary debug offset for the viewport/test rig. The real system uses the
+# endoscope tip pose from the model, not the model origin itself.
+@export var model_origin := Vector3(0.0, -0.1, -1.2)
+@export var arm_color := Color(0.2, 0.9, 1.0, 1.0)
 
-var _segment_names := [&"Segment1", &"Segment2", &"Segment3"]
-var _colors := [
-	Color(0.15, 0.75, 1.0, 1.0),
-	Color(0.3, 1.0, 0.55, 1.0),
-	Color(1.0, 0.6, 0.25, 1.0),
-]
+var _tube_instance: MeshInstance3D
 
-func update_from_origin_and_direction(origin: Vector3, direction: Vector3) -> void:
-	var arm_direction := direction.normalized()
-	if arm_direction.length_squared() < 0.0001:
-		arm_direction = Vector3.UP
-
-	var segment_2_total_length := segment_2_unit_length * segment_2_segments_count
-	var segment_1 := _ensure_segment(_segment_names[0], _colors[0])
-	var segment_2 := _ensure_segment(_segment_names[1], _colors[1])
-	var segment_3 := _ensure_segment(_segment_names[2], _colors[2])
-
-	_set_segment_length(segment_1, segment_1_length)
-	_set_segment_length(segment_2, segment_2_total_length)
-	_set_segment_length(segment_3, segment_3_length)
-
-	position = origin
-	quaternion = Quaternion(Vector3.UP, arm_direction)
-	segment_1.position = Vector3(0.0, segment_1_length * 0.5, 0.0)
-	segment_2.position = Vector3(0.0, segment_1_length + segment_2_total_length * 0.5, 0.0)
-	segment_3.position = Vector3(0.0, segment_1_length + segment_2_total_length + segment_3_length * 0.5, 0.0)
-	segment_1.rotation = Vector3.ZERO
-	segment_2.rotation = Vector3.ZERO
-	segment_3.rotation = Vector3.ZERO
-
-func _ensure_segment(segment_name: StringName, color: Color) -> MeshInstance3D:
-	var segment: MeshInstance3D = get_node_or_null(NodePath(String(segment_name)))
-	if segment == null:
-		segment = MeshInstance3D.new()
-		segment.name = String(segment_name)
-		add_child(segment)
-
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = segment_radius
-	mesh.bottom_radius = segment_radius
-	mesh.height = 0.1
-	segment.mesh = mesh
-	segment.visible = true
+func _ready() -> void:
+	_tube_instance = MeshInstance3D.new()
+	_tube_instance.name = "KinematicTube"
+	add_child(_tube_instance)
 
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = color
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	segment.material_override = material
-	return segment
+	material.albedo_color = arm_color
+	material.metallic = 0.1
+	material.roughness = 0.4
+	_tube_instance.material_override = material
+	_tube_instance.visible = false
 
-func _set_segment_length(segment: MeshInstance3D, length: float) -> void:
-	var mesh := segment.mesh as CylinderMesh
-	if mesh == null:
-		mesh = CylinderMesh.new()
-		mesh.top_radius = segment_radius
-		mesh.bottom_radius = segment_radius
-		segment.mesh = mesh
-	mesh.height = length
-	return
+func update_polyline(model_points: PackedVector3Array) -> void:
+	if model_points.size() < 2:
+		_tube_instance.visible = false
+		return
+
+	var points := PackedVector3Array()
+	points.resize(model_points.size())
+	for index in range(model_points.size()):
+		var point := model_points[index]
+		# Model coordinates are millimetres in x-right/y-down/z-forward;
+		# convert to Godot metres, y-up, and -z-forward.
+		var scaled := Vector3(point.x, -point.y, -point.z) * model_to_scene_scale
+		points[index] = model_origin + scaled
+
+	_tube_instance.mesh = _build_tube(points)
+	_tube_instance.visible = _tube_instance.mesh != null
+
+func _build_tube(points: PackedVector3Array) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for index in range(points.size() - 1):
+		var start := points[index]
+		var finish := points[index + 1]
+		var segment := finish - start
+		if segment.length_squared() < 1e-12:
+			continue
+
+		var tangent := segment.normalized()
+		var reference_axis := Vector3.UP
+		if absf(tangent.dot(reference_axis)) > 0.95:
+			reference_axis = Vector3.RIGHT
+		var axis_x := reference_axis.cross(tangent).normalized()
+		var axis_y := tangent.cross(axis_x).normalized()
+
+		for radial_index in range(radial_segments):
+			var next_radial_index := (radial_index + 1) % radial_segments
+			var angle_a := TAU * float(radial_index) / float(radial_segments)
+			var angle_b := TAU * float(next_radial_index) / float(radial_segments)
+			var normal_a := (axis_x * cos(angle_a) + axis_y * sin(angle_a)).normalized()
+			var normal_b := (axis_x * cos(angle_b) + axis_y * sin(angle_b)).normalized()
+
+			var a := start + normal_a * tube_radius
+			var b := finish + normal_a * tube_radius
+			var c := finish + normal_b * tube_radius
+			var d := start + normal_b * tube_radius
+
+			# Reverse winding so the tube faces point outwards.
+			_add_vertex(surface, a, normal_a)
+			_add_vertex(surface, c, normal_b)
+			_add_vertex(surface, b, normal_a)
+			_add_vertex(surface, a, normal_a)
+			_add_vertex(surface, d, normal_b)
+			_add_vertex(surface, c, normal_b)
+
+	return surface.commit()
+
+func _add_vertex(surface: SurfaceTool, vertex_position: Vector3, normal: Vector3) -> void:
+	surface.set_normal(normal)
+	surface.add_vertex(vertex_position)
