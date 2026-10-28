@@ -3,14 +3,14 @@
 *.translation
 *.log
 
-# Ignore the heavy compiled python addon binaries
-addons/godot_python/
+# Ignore python compiled cache globally
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-# ...BUT explicitly make sure Git tracks your custom Python files
-!addons/godot_python/**/*.py
-!PythonFiles/
-!**/*.py
+# Ignore the heavy python addon binaries (matching your actual folder name: py4godot)
+addons/py4godot/
 
-# OS specific ignores
-.DS_Store
-.thumbs
+# ...BUT explicitly make sure Git tracks your custom source Python files
+!PythonFiles/**/*.py

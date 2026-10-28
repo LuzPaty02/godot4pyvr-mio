@@ -3,29 +3,31 @@
 [ext_resource type="Script" uid="uid://n8qofv3kxjcm" path="res://main.gd" id="1_ig7tw"]
 [ext_resource type="Script" path="res://PythonFiles/xr_setup.py" id="2_0xm2m"]
 
-[node name="main" type="Node3D" unique_id=495166052]
+[node name="Main" type="Node3D" unique_id=495166052]
 script = ExtResource("1_ig7tw")
 
-[node name="XROrigin3D" type="XROrigin3D" parent="." unique_id=1968607024]
+[node name="XRRig" type="Node3D" parent="." unique_id=2507375716]
 
-[node name="lefthand" type="XRController3D" parent="XROrigin3D" unique_id=919530321]
+[node name="XROrigin3D" type="XROrigin3D" parent="XRRig" unique_id=1968607024]
+
+[node name="LeftHand" type="XRController3D" parent="XRRig/XROrigin3D" unique_id=919530321]
 tracker = &"left_hand"
 pose = &"aim"
 
-[node name="righthand" type="XRController3D" parent="XROrigin3D" unique_id=397770965]
+[node name="RightHand" type="XRController3D" parent="XRRig/XROrigin3D" unique_id=397770965]
 tracker = &"right_hand"
 pose = &"aim"
 
-[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D" unique_id=913497663]
+[node name="XRCamera3D" type="XRCamera3D" parent="XRRig/XROrigin3D" unique_id=913497663]
 
-[node name="HUDLabel" type="Label3D" parent="XROrigin3D/XRCamera3D" unique_id=1003321546]
+[node name="HUDLabel" type="Label3D" parent="XRRig/XROrigin3D/XRCamera3D" unique_id=1003321546]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
 
-[node name="visualizationcontainer" type="Node3D" parent="." unique_id=754196705]
+[node name="World" type="Node3D" parent="." unique_id=754196705]
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=966763586]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=966763586]
 
-[node name="PythonXRManager" type="Node3D" parent="." unique_id=2046732014]
+[node name="XRSystems" type="Node3D" parent="." unique_id=2046732014]
 unique_name_in_owner = false
 process_mode = 0
 process_priority = 0

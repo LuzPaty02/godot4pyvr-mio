@@ -17,10 +17,14 @@ func _ready() -> void:
 			print("Native: Passthrough blend mode rejected by runtime.")
 			
 	# 3. Hand off references safely to the child Python node
-	var python_manager = $PythonXRManager
-	var left_hand = $XROrigin3D/lefthand
-	var right_hand = $XROrigin3D/righthand
+	var python_manager = $XRSystems
+	var left_hand = $XRRig/XROrigin3D/LeftHand
+	var right_hand = $XRRig/XROrigin3D/RightHand
 	
 	if python_manager and python_manager.has_method("initialize_spheres"):
 		python_manager.initialize_spheres(left_hand, right_hand)
 		print("Native: Target hand pointers successfully transferred to Python layer.")
+
+	if python_manager and python_manager.has_method("read_controller_inputs"):
+		var controller_inputs = python_manager.read_controller_inputs(left_hand, right_hand)
+		print("Native: Controller inputs normalized to [0, 1]: ", controller_inputs)

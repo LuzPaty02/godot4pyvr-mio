@@ -1,0 +1,11 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python.defaultInterpreterPath": "/home/raslab/Documents/godot/hello-world/addons/py4godot/cpython-3.14.3-linux64/python/bin/python",
+    "python.analysis.extraPaths": [
+        "/home/raslab/Documents/godot/hello-world/addons/py4godot/cpython-3.14.3-linux64/python/lib/python3.14/site-packages",
+        "/home/raslab/Documents/godot/hello-world"
+    ],
+    "python.envFile": "${workspaceFolder}/.env",
+    "godotTools.editorPath.godot4": "/home/raslab/Documents/godot/godot-bin/Godot_v4.7-stable_linux.x86_64"
+}
