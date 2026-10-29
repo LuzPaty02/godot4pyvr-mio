@@ -1,6 +1,12 @@
 import json, socket, sys, os, time
+from pathlib import Path
+
 import pytest
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from input_server import (ACCEPT, RESTART, STALE, InputServer,
                           PacketError, SeqFilter, decode_packet)
 from latest_slot import Mailbox

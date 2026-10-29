@@ -28,7 +28,7 @@ import time
 from dataclasses import dataclass, replace
 from typing import Callable, Optional
 
-from latest_slot import Mailbox
+from robot_control.latest_slot import Mailbox
 
 PROTOCOL_VERSION = 1
 MAX_PACKET = 65535

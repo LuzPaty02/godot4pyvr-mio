@@ -6,12 +6,17 @@ clash with a running server on 9000.
 import os
 import sys
 import time
+from pathlib import Path
+
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from input_client import InputClient
-from input_server import InputServer
-from latest_slot import Mailbox
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from PythonFiles.input_client import InputClient
+from robot_control.input_server import InputServer
+from robot_control.latest_slot import Mailbox
 
 
 def controller_state(trigger=0.5, connected=True):
