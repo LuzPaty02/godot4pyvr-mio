@@ -31,7 +31,6 @@ renderer/rendering_method="compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 0)
 transparent_background=true
-
 xr/viewport/xr_mode=1
 xr/shaders/enabled=true
 xr/openxr/view_configuration=0

@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://cc8soobnptai2"
+
+[deps]
+
+files=["res://module_main/dicts/orders.TL.translation", "res://module_main/dicts/orders.RL.translation", "res://module_main/dicts/orders.BL.translation", "res://module_main/dicts/orders.AL.translation", "res://module_main/dicts/orders.TR.translation", "res://module_main/dicts/orders.RR.translation", "res://module_main/dicts/orders.BR.translation", "res://module_main/dicts/orders.AR.translation", "res://module_main/dicts/orders.EBV.translation", "res://module_main/dicts/orders.EBH.translation"]
+
+source_file="res://module_main/dicts/orders.csv"
+dest_files=["res://module_main/dicts/orders.TL.translation", "res://module_main/dicts/orders.RL.translation", "res://module_main/dicts/orders.BL.translation", "res://module_main/dicts/orders.AL.translation", "res://module_main/dicts/orders.TR.translation", "res://module_main/dicts/orders.RR.translation", "res://module_main/dicts/orders.BR.translation", "res://module_main/dicts/orders.AR.translation", "res://module_main/dicts/orders.EBV.translation", "res://module_main/dicts/orders.EBH.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true
