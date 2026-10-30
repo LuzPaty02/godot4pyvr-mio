@@ -1,9 +1,10 @@
 """Receive VR input and route watchdog-gated commands to virtual STRAS.""" 
 from __future__ import annotations 
 import argparse 
+import math
 import time 
 from dataclasses import dataclass 
-from typing import Optional 
+from typing import Mapping, Optional
 from PythonFiles.input_client import PROTOCOL_VERSION 
 from robot_control.input_server import InputMessage, InputServer 
 from robot_control.latest_slot import Mailbox 
@@ -17,6 +18,26 @@ class PipelineState:
     message: Optional[InputMessage] 
     verdict: Verdict 
     command: TeleopCommand 
+    dofs: Mapping[str, float]
+
+
+_DOF_NAMES = ("ET", "ER", "EBV", "EBH")
+
+
+def _read_normalized_dofs(payload: Mapping) -> dict[str, float]:
+    """Return finite normalized DoF values from the Godot input packet."""
+    raw_dofs = payload.get("dofs")
+    if not isinstance(raw_dofs, dict):
+        return {}
+    dofs = {}
+    for name in _DOF_NAMES:
+        value = raw_dofs.get(name)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        value = float(value)
+        if math.isfinite(value) and 0.0 <= value <= 1.0:
+            dofs[name] = value
+    return dofs
 
 class InputMonitor: 
     """Apply watchdog gating and mapping to the latest controller frame.""" 
@@ -35,7 +56,8 @@ class InputMonitor:
         verdict = self._watchdog.check(message, now) 
         payload = message.payload if message is not None else {} 
         command = self._mapper.map(payload, verdict.enabled_hands) 
-        return PipelineState(message, verdict, command) 
+        return PipelineState(
+            message, verdict, command, _read_normalized_dofs(payload))
 
 def _to_stras_axes( 
     command: TeleopCommand, follower: VirtualFollower 
@@ -48,17 +70,39 @@ def _to_stras_axes(
         for joint, value in command.velocity.items() 
     ] 
 
-def _format_state(state: PipelineState, follower: VirtualFollower) -> str: 
+def _format_state(
+    state: PipelineState, follower: VirtualFollower, server: InputServer
+) -> str:
     velocity = dict(follower.last_velocity) 
     position = dict(follower.last_position) 
+    dofs = dict(state.dofs) if state.dofs else "unavailable"
     if state.verdict.reason is not Reason.OK: 
+        stats = server.stats
+        if state.verdict.reason is Reason.NO_MESSAGE:
+            if stats.received == 0:
+                reason = (
+                    "no_message; no UDP packets received yet. Check that Godot "
+                    "is running and sending to 127.0.0.1:9000"
+                )
+            else:
+                reason = (
+                    "no_message; UDP packets arrived but none were accepted "
+                    f"(received={stats.received}, malformed={stats.malformed}, "
+                    f"stale={stats.stale})"
+                )
+        else:
+            reason = (
+                f"stale input (age={state.verdict.age_s:.3f}s; "
+                f"received={stats.received}, accepted={stats.accepted})"
+            )
         return ( 
-            f"SAFE STOP ({state.verdict.reason.value}); " 
+            f"SAFE STOP ({reason}); normalized_dofs={dofs}; "
             f"STRAS velocity={velocity}; position={position}" 
         ) 
     seq = state.message.seq if state.message is not None else "?" 
     return ( 
         f"seq={seq} enabled={sorted(state.verdict.enabled_hands)} " 
+        f"normalized_dofs={dofs}; "
         f"STRAS velocity={velocity}; position={position}" 
     ) 
 
@@ -103,14 +147,15 @@ def main(argv: Optional[list[str]] = None) -> int:
             signature = ( 
                 state.verdict.reason, 
                 state.verdict.enabled_hands, 
-                tuple(sorted(state.command.velocity.items())), 
+                tuple(sorted(state.command.velocity.items())),
+                tuple(sorted(state.dofs.items())),
                 state.message.seq if state.message else None, 
             ) 
             if signature != last_signature and ( 
                 state.verdict.reason is not Reason.OK 
                 or now - last_print >= 0.1 
             ): 
-                print(_format_state(state, follower), flush=True) 
+                print(_format_state(state, follower, server), flush=True)
                 last_signature = signature 
                 last_print = now 
             time.sleep(0.01) 
