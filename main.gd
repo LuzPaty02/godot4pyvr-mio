@@ -1,5 +1,6 @@
 extends Node3D
 func _ready() -> void:
+    process_mode = Node.PROCESS_MODE_ALWAYS
     # 1. Initialize Viewport and Alpha Pass-through Clear 
     get_viewport().use_xr = true
     get_viewport().transparent_bg = true
@@ -28,4 +29,9 @@ func _process(_delta: float) -> void:
         var left_hand = $XRRig/XROrigin3D/LeftHand
         var right_hand = $XRRig/XROrigin3D/RightHand
         python_manager.send_controller_inputs(
-            left_hand, right_hand, left_hand.is_active, right_hand.is_active)
+            left_hand, right_hand, left_hand.is_active, right_hand.is_active,
+            _controller_position(left_hand), _controller_position(right_hand))
+
+func _controller_position(controller: XRController3D) -> Dictionary:
+    var position = controller.global_position
+    return {"x": position.x, "y": position.y, "z": position.z}

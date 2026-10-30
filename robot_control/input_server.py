@@ -9,10 +9,12 @@ and keeps the newest one.
 Packet format (JSON, UTF-8), as produced by input_client.py::
 
     {"v": 1, "seq": 42,
-     "left":  {"connected": true, "trigger": 0.0, "grip": 0.0,
+     "left":  {"connected": true, "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+               "trigger": 0.0, "grip": 0.0,
                "primary": {"x": 0.0, "y": 0.0}, "secondary": {...},
                "buttons": {...}},
-     "right": {...}}
+     "right": {...},
+     "dofs": {"ET": 0.5, "ER": 0.5, "EBV": 0.5, "EBH": 0.5}}
 
 Timing: ``received_at`` is stamped with this process's monotonic clock on
 arrival. Never compare it with a clock from the Godot process.
