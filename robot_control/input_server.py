@@ -2,27 +2,30 @@
 
     UDP socket -> decode_packet -> SeqFilter -> Mailbox (latest wins)
 
-Runs in the controller process. Knows nothing about the robot, the watchdog
-or the teleop mapping: it only turns datagrams into validated InputMessages
-and keeps the newest one.
+Runs alongside the FK visualization process. It only turns datagrams into
+validated InputMessages and keeps the newest one.
 
 Packet format (JSON, UTF-8), as produced by input_client.py::
 
+Controller ``position`` is Godot's global position in metres; ``orientation``
+is the global rotation quaternion in xyzw order. The server preserves these
+fields as input data; the FK visualization runner consumes a separate
+normalized ``joints`` mapping and does not perform pose registration or IK.
+
     {"v": 1, "seq": 42,
-     "left":  {"connected": true, "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+    "left":  {"connected": true,
+               "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+               "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
                "trigger": 0.0, "grip": 0.0,
                "primary": {"x": 0.0, "y": 0.0}, "secondary": {...},
                "buttons": {...}},
-     "right": {...},
-     "dofs": {"ET": 0.5, "ER": 0.5, "EBV": 0.5, "EBH": 0.5}}
+    "right": {...}}
 
 Timing: ``received_at`` is stamped with this process's monotonic clock on
 arrival. Never compare it with a clock from the Godot process.
 
 Run ``python input_server.py`` to print what arrives (use tools/fake_client.py).
 """
-from __future__ import annotations
-
 import json
 import socket
 import threading

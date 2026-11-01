@@ -1,7 +1,11 @@
 import numpy as np
 from scipy.io import loadmat
-import cv2
 import math
+
+try:
+    import cv2
+except ImportError:  # Intrinsics are still useful to 3D renderers without OpenCV.
+    cv2 = None
 
 
 class camera_model:
@@ -23,13 +27,12 @@ class camera_model:
                            [0, 0, 1]])
         self.kc = self.matInfo['kc'].flatten()
 
-        imSize = (self.imgSize[0], self.imgSize[1])
-        self.mapx, self.mapy = cv2.initUndistortRectifyMap(self.K,
-                                                           self.kc,
-                                                           None,
-                                                           self.K,
-                                                           imSize,
-                                                           5)
+        self.mapx = None
+        self.mapy = None
+        if cv2 is not None:
+            imSize = (self.imgSize[0], self.imgSize[1])
+            self.mapx, self.mapy = cv2.initUndistortRectifyMap(
+                self.K, self.kc, None, self.K, imSize, 5)
 
     def getImSize(self):
         return self.imgSize[0], self.imgSize[1]
@@ -41,6 +44,8 @@ class camera_model:
         return self.c
 
     def rectify_image(self, img):
+        if cv2 is None or self.mapx is None or self.mapy is None:
+            raise RuntimeError("OpenCV is required to rectify camera images")
         return cv2.remap(img, self.mapx, self.mapy, cv2.INTER_LINEAR)
 
     def project_point(self, x, y, z):
@@ -48,6 +53,8 @@ class camera_model:
         return np.dot(self.K, vec)
 
     def project_point(self, Point):
+        if cv2 is None:
+            raise RuntimeError("OpenCV is required for distortion-aware projection")
         return cv2.projectPoints(Point.reshape(1, 3),
                                  (0, 0, 0),
                                  (0, 0, 0),
@@ -55,6 +62,8 @@ class camera_model:
                                  self.kc)[0].flatten()
 
     def interpolate_map(self, x, y):
+        if self.mapx is None or self.mapy is None:
+            raise RuntimeError("OpenCV is required to interpolate rectification maps")
         xm = int(math.floor(x))
         xM = int(math.ceil(x))
         x_res = xM - x

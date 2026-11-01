@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://c3prlatwxbdbn"]
 
 [ext_resource type="Script" uid="uid://n8qofv3kxjcm" path="res://main.gd" id="1_ig7tw"]
-[ext_resource type="Script" path="res://PythonFiles/xr_setup.py" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://d8mtg64pskn0" path="res://robot_control/stras_receiver.gd" id="3_stras_receiver"]
 
 [node name="Main" type="Node3D" unique_id=495166052]
 script = ExtResource("1_ig7tw")
 
-[node name="XRRig" type="Node3D" parent="." unique_id=2507375716]
+[node name="XRRig" type="Node3D" parent="." unique_id=-1787591580]
 
 [node name="XROrigin3D" type="XROrigin3D" parent="XRRig" unique_id=1968607024]
 
@@ -27,19 +27,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=966763586]
 
-[node name="XRSystems" type="Node3D" parent="." unique_id=2046732014]
-unique_name_in_owner = false
-process_mode = 0
-process_priority = 0
-process_physics_priority = 0
-process_thread_group = 0
-physics_interpolation_mode = 0
-auto_translate_mode = 0
-editor_description = ""
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-rotation_edit_mode = 0
-rotation_order = 2
-top_level = false
-visible = true
-visibility_parent = NodePath("")
-script = ExtResource("2_0xm2m")
+[node name="RobotGeometry" type="Node3D" parent="World" unique_id=392475165]
+script = ExtResource("3_stras_receiver")
+

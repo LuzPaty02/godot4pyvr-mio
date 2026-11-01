@@ -1,0 +1,2 @@
+Py4Godot is not used by this project: XR input and UDP transport are implemented in GDScript.
+The Python FK backend runs separately in the project's conda environment.

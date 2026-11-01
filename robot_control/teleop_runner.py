@@ -1,170 +1,186 @@
-"""Receive VR input and route watchdog-gated commands to virtual STRAS.""" 
-from __future__ import annotations 
-import argparse 
+"""Map normalized STRAS joint positions to forward-kinematics geometry for Godot.
+
+Input packets must contain ``joints`` as a mapping from every QP joint label
+to a normalized position in [0, 1]. This intentionally does not infer joint
+positions from controller poses or sticks: that mapping belongs at the input
+source and must be specified separately.
+"""
+from __future__ import annotations
+
+import argparse
+import json
 import math
-import time 
-from dataclasses import dataclass 
-from typing import Mapping, Optional
-from PythonFiles.input_client import PROTOCOL_VERSION 
-from robot_control.input_server import InputMessage, InputServer 
-from robot_control.latest_slot import Mailbox 
-from robot_control.teleop_mapping import TeleopCommand, TeleopMapper 
-from robot_control.stras.constants import AXIS_SOCKET_INDEX 
-from robot_control.stras.follower import VirtualFollower 
-from robot_control.watchdog import Reason, Verdict, Watchdog, WatchdogConfig 
+from pathlib import Path
+import socket
+import time
+from typing import Mapping
 
-@dataclass(frozen=True) 
-class PipelineState: 
-    message: Optional[InputMessage] 
-    verdict: Verdict 
-    command: TeleopCommand 
-    dofs: Mapping[str, float]
+import numpy as np
+
+from PythonFiles.input_client import PROTOCOL_VERSION
+from robot_control.input_server import InputMessage, InputServer
+from robot_control.latest_slot import Mailbox
+from robot_control.stras.constants import QP_ORDER
+from robot_control.stras.kinematics import Kinematics, ShapeOutput
+from robot_control.stras.limits import RobotLimits
 
 
-_DOF_NAMES = ("ET", "ER", "EBV", "EBH")
+def normalized_joints_to_q(values: Mapping, limits: RobotLimits) -> np.ndarray:
+    """Convert a complete label->normalized-position mapping to STRAS q."""
+    if not isinstance(values, Mapping):
+        raise ValueError("joints must be an object mapping every joint label to [0, 1]")
+    missing = set(QP_ORDER) - set(values)
+    extra = set(values) - set(QP_ORDER)
+    if missing or extra:
+        raise ValueError(f"joints labels mismatch (missing={sorted(missing)}, extra={sorted(extra)})")
 
-
-def _read_normalized_dofs(payload: Mapping) -> dict[str, float]:
-    """Return finite normalized DoF values from the Godot input packet."""
-    raw_dofs = payload.get("dofs")
-    if not isinstance(raw_dofs, dict):
-        return {}
-    dofs = {}
-    for name in _DOF_NAMES:
-        value = raw_dofs.get(name)
+    normalized = []
+    for joint in QP_ORDER:
+        value = values[joint]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            continue
+            raise ValueError(f"normalized {joint} must be a finite number in [0, 1]")
         value = float(value)
-        if math.isfinite(value) and 0.0 <= value <= 1.0:
-            dofs[name] = value
-    return dofs
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError(f"normalized {joint} must be a finite number in [0, 1]")
+        normalized.append(value)
 
-class InputMonitor: 
-    """Apply watchdog gating and mapping to the latest controller frame.""" 
-    def __init__( 
-        self, 
-        mailbox: Mailbox[InputMessage], 
-        watchdog: Optional[Watchdog] = None, 
-        mapper: Optional[TeleopMapper] = None, 
-    ): 
-        self._mailbox = mailbox 
-        self._watchdog = watchdog or Watchdog() 
-        # ControllerInputReader maps stick axes from [-1, 1] to [0, 1]. 
-        self._mapper = mapper or TeleopMapper(axes_normalized=True) 
-    def tick(self, now: float) -> PipelineState: 
-        message = self._mailbox.get() 
-        verdict = self._watchdog.check(message, now) 
-        payload = message.payload if message is not None else {} 
-        command = self._mapper.map(payload, verdict.enabled_hands) 
-        return PipelineState(
-            message, verdict, command, _read_normalized_dofs(payload))
+    joint_limits = limits.virtual_cs
+    lower = np.asarray(joint_limits.lower, dtype=np.float64)
+    upper = np.asarray(joint_limits.upper, dtype=np.float64)
+    return lower + np.asarray(normalized, dtype=np.float64) * (upper - lower)
 
-def _to_stras_axes( 
-    command: TeleopCommand, follower: VirtualFollower 
-) -> list[tuple[int, float]]: 
-    """Scale normalized joint velocities to STRAS axis units.""" 
-    limits = follower.limits.joint_velocity 
-    max_speed = dict(zip(limits.labels, limits.upper)) 
-    return [ 
-        (AXIS_SOCKET_INDEX[joint], float(value) * abs(float(max_speed[joint]))) 
-        for joint, value in command.velocity.items() 
-    ] 
 
-def _format_state(
-    state: PipelineState, follower: VirtualFollower, server: InputServer
-) -> str:
-    velocity = dict(follower.last_velocity) 
-    position = dict(follower.last_position) 
-    dofs = dict(state.dofs) if state.dofs else "unavailable"
-    if state.verdict.reason is not Reason.OK: 
-        stats = server.stats
-        if state.verdict.reason is Reason.NO_MESSAGE:
-            if stats.received == 0:
-                reason = (
-                    "no_message; no UDP packets received yet. Check that Godot "
-                    "is running and sending to 127.0.0.1:9000"
-                )
-            else:
-                reason = (
-                    "no_message; UDP packets arrived but none were accepted "
-                    f"(received={stats.received}, malformed={stats.malformed}, "
-                    f"stale={stats.stale})"
-                )
-        else:
-            reason = (
-                f"stale input (age={state.verdict.age_s:.3f}s; "
-                f"received={stats.received}, accepted={stats.accepted})"
-            )
-        return ( 
-            f"SAFE STOP ({reason}); normalized_dofs={dofs}; "
-            f"STRAS velocity={velocity}; position={position}" 
-        ) 
-    seq = state.message.seq if state.message is not None else "?" 
-    return ( 
-        f"seq={seq} enabled={sorted(state.verdict.enabled_hands)} " 
-        f"normalized_dofs={dofs}; "
-        f"STRAS velocity={velocity}; position={position}" 
-    ) 
+def build_geometry_packet(frame: int, shape: ShapeOutput,
+                          camera_calibration=None) -> dict:
+    """Build the JSON-compatible frame expected by ``stras_receiver.gd``."""
+    right_sections = [np.asarray(section).tolist() for section in shape.right_sections]
+    left_sections = [np.asarray(section).tolist() for section in shape.left_sections]
+    endoscope_sections = shape.endoscope_sections or ()
+    endoscope = (np.concatenate(endoscope_sections, axis=0)
+                 if endoscope_sections else np.empty((0, 3)))
+    return {
+        "v": 1,
+        "frame": int(frame),
+        "right": np.asarray(shape.right).tolist(),
+        "left": np.asarray(shape.left).tolist(),
+        "endoscope": endoscope.tolist(),
+        "right_sections": right_sections,
+        "left_sections": left_sections,
+        "endoscope_sections": [np.asarray(section).tolist()
+                               for section in endoscope_sections],
+        "camera": {
+            "pose": np.asarray(shape.tip_e).tolist(),
+            "intrinsics": ({
+                "fx": float(camera_calibration.f[0]),
+                "fy": float(camera_calibration.f[1]),
+                "cx": float(camera_calibration.c[0]),
+                "cy": float(camera_calibration.c[1]),
+                "width": int(camera_calibration.imgSize[0]),
+                "height": int(camera_calibration.imgSize[1]),
+            } if camera_calibration is not None else None),
+        },
+    }
 
-def main(argv: Optional[list[str]] = None) -> int: 
-    parser = argparse.ArgumentParser( 
-        description="Receive local Godot VR input and route it to virtual STRAS." 
-    ) 
-    parser.add_argument("--host", default="127.0.0.1", 
-                        help="bind address (default: loopback only)") 
-    parser.add_argument("--port", type=int, default=9000) 
-    parser.add_argument("--timeout", type=float, default=0.2, 
-                        help="input freshness timeout in seconds") 
-    args = parser.parse_args(argv) 
-    if not 1 <= args.port <= 65535: 
-        parser.error("--port must be between 1 and 65535") 
-    if args.timeout <= 0: 
-        parser.error("--timeout must be greater than zero") 
-    mailbox: Mailbox[InputMessage] = Mailbox() 
-    monitor = InputMonitor( 
-        mailbox, watchdog=Watchdog(WatchdogConfig(timeout_s=args.timeout))) 
-    follower = VirtualFollower() 
-    follower.start() 
-    server = InputServer(mailbox, host=args.host, port=args.port) 
-    try: 
-        server.start() 
-    except OSError as exc: 
-        parser.exit(1, f"Could not start input receiver: {exc}\n") 
-    print( 
-        f"Listening on {server.address}; protocol v{PROTOCOL_VERSION}. " 
-        "Virtual STRAS only: no hardware connection or actuation." 
-    ) 
-    last_signature = None 
-    last_print = 0.0 
-    last_update = time.monotonic() 
-    try: 
-        while True: 
-            now = time.monotonic() 
-            follower.advance(now - last_update) 
-            last_update = now 
-            state = monitor.tick(now) 
-            follower.send_velocity(_to_stras_axes(state.command, follower)) 
-            signature = ( 
-                state.verdict.reason, 
-                state.verdict.enabled_hands, 
-                tuple(sorted(state.command.velocity.items())),
-                tuple(sorted(state.dofs.items())),
-                state.message.seq if state.message else None, 
-            ) 
-            if signature != last_signature and ( 
-                state.verdict.reason is not Reason.OK 
-                or now - last_print >= 0.1 
-            ): 
-                print(_format_state(state, follower, server), flush=True)
-                last_signature = signature 
-                last_print = now 
-            time.sleep(0.01) 
-    except KeyboardInterrupt: 
-        print("\nStopping local input receiver.") 
-    finally: 
-        server.stop() 
-        follower.close() 
-    return 0 
 
-if __name__ == "__main__": 
+class GodotGeometrySender:
+    """Send latest-only STRAS geometry frames to the Godot UDP receiver."""
+
+    def __init__(self, host: str = "127.0.0.1", port: int = 9100):
+        self._address = (host, port)
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def send(self, frame: int, shape: ShapeOutput,
+             camera_calibration=None) -> None:
+        packet = build_geometry_packet(frame, shape, camera_calibration)
+        self._socket.sendto(json.dumps(packet, separators=(",", ":")).encode("utf-8"),
+                            self._address)
+
+    def close(self) -> None:
+        self._socket.close()
+
+
+def _build_kinematics() -> Kinematics:
+    """Build the STRAS model from repository-relative robot configuration files."""
+    from module_main.model_utilities.robot_model import robot_model, robot_twobending
+    from module_main.model_utilities.stras_model import StrasModel
+
+    model_dir = Path(__file__).resolve().parents[1] / "module_main" / "model_utilities"
+    model = StrasModel(
+        robot_model(str(model_dir / "robot_config_right.txt")),
+        robot_model(str(model_dir / "robot_config_left.txt")),
+        robot_twobending(str(model_dir / "robot_config_endoscope.txt")),
+    )
+    model.defineEndoscopeShapeOn()
+    return Kinematics(model)
+
+
+def _build_camera_calibration(module_main: Path):
+    from module_main.model_utilities.camera_model import camera_model
+    from robot_control.stras.config import load_model_files
+
+    calibration_path = load_model_files(module_main).camera_calibration
+    return camera_model(str(calibration_path)) if calibration_path else None
+
+
+def _latest_message(mailbox: Mailbox[InputMessage], after_seq: int) -> InputMessage | None:
+    message = mailbox.get()
+    if message is None or message.seq <= after_seq:
+        return None
+    return message
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Compute STRAS forward kinematics and stream geometry to Godot.")
+    parser.add_argument("--input-host", default="127.0.0.1")
+    parser.add_argument("--input-port", type=int, default=9000)
+    parser.add_argument("--godot-host", default="127.0.0.1")
+    parser.add_argument("--godot-port", type=int, default=9100)
+    args = parser.parse_args(argv)
+    for name in ("input_port", "godot_port"):
+        if not 1 <= getattr(args, name) <= 65535:
+            parser.error(f"--{name.replace('_', '-')} must be between 1 and 65535")
+
+    mailbox: Mailbox[InputMessage] = Mailbox()
+    server = InputServer(mailbox, host=args.input_host, port=args.input_port)
+    try:
+        server.start()
+    except OSError as exc:
+        parser.exit(1, f"Could not start input receiver: {exc}\n")
+
+    module_main = Path(__file__).resolve().parents[1] / "module_main"
+    kinematics = _build_kinematics()
+    camera_calibration = _build_camera_calibration(module_main)
+    limits = RobotLimits.default(module_main)
+    sender = GodotGeometrySender(args.godot_host, args.godot_port)
+    print(
+        f"Listening for normalized joint positions on {server.address}; "
+        f"streaming FK geometry to {args.godot_host}:{args.godot_port} "
+        f"(input protocol v{PROTOCOL_VERSION}).",
+        flush=True,
+    )
+
+    last_seq = -1
+    try:
+        while True:
+            message = _latest_message(mailbox, last_seq)
+            if message is None:
+                time.sleep(0.005)
+                continue
+            last_seq = message.seq
+            try:
+                q = normalized_joints_to_q(message.payload.get("joints"), limits)
+                shape = kinematics.shape(q)
+                sender.send(message.seq, shape, camera_calibration)
+            except (TypeError, ValueError, OSError) as exc:
+                print(f"Skipping input frame {message.seq}: {exc}", flush=True)
+    except KeyboardInterrupt:
+        print("\nStopping FK visualization runner.", flush=True)
+    finally:
+        server.stop()
+        sender.close()
+    return 0
+
+
+if __name__ == "__main__":
     raise SystemExit(main())

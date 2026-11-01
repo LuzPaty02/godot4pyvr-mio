@@ -7,8 +7,9 @@ caller's array). Everything here therefore works on a private float64 copy and
 returns read-only arrays, so no caller can alias model internals.
 
 q is the 10-vector in *configuration-space order*::
+q is the 10-vector in *configuration-space / QP order*::
 
-    [BR, RR, TR,  BL, RL, TL,  EBH, EBV, ER, ET]
+    [BR, RR, TR,  BL, RL, TL,  EBV, EBH, ER, ET]
      right arm    left arm     endoscope
 
 Limits are NOT enforced here; that is ``limits.py``'s job. Note the model
@@ -20,8 +21,13 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import numpy as np
+from .constants import QP_ORDER
 
-N_JOINTS = 10
+# The legacy StrasModel consumes q in the same order used by the QP and
+# follower. Keep this as an alias rather than a second independently-maintained
+# joint-order declaration.
+KINEMATICS_ORDER = QP_ORDER
+N_JOINTS = len(KINEMATICS_ORDER)
 
 
 class StrasLike(Protocol):

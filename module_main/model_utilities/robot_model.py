@@ -161,11 +161,16 @@ class robot_model:
                 curv[i] = self.q[0]
                 rotation[i] = self.q[1]
 
-            for lj in np.linspace(start=0, stop=l0, num=10):
-                Tc = Ti.dot(self.computeSectionTransform([
-                    curv[i], rotation[i], lj]))
-                p = Tc.as_matrix()[:-1, 3]
-                section_shape.append(p)
+            # Use the shared piecewise-constant-curvature arc implementation
+            # for the section backbone, then place it in this robot's frame.
+            # The +pi aligns its normal convention with computeSectionTransform.
+            radius = np.inf if curv[i] == 0 else 1.0 / curv[i]
+            local_shape, _, _ = self.robot.computeCircArc(
+                np.zeros(3), np.array([0.0, 0.0, 1.0]),
+                np.array([1.0, 0.0, 0.0]), rotation[i] + np.pi,
+                radius, l0, n_samples=10)
+            base = Ti.as_matrix()
+            section_shape = (local_shape @ base[:3, :3].T) + base[:3, 3]
             Ti = Ti.dot(self.computeSectionTransform(
                 [curv[i], rotation[i], l0]))
             Shape.append(section_shape)

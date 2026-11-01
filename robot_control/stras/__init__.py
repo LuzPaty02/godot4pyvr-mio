@@ -11,9 +11,11 @@ Layout (each module has one job):
     state.py          RobotState, AxisRanges, parse_state, parse_axis_infos
     kinematics.py     wrapper around StrasModel, returns ModelOutput
     visualizer_base.py    VisualizerLike: the one-method renderer interface
-    godot_visualization.py  GodotVisualizer: streams geometry to Godot
     experiment.py     experiment / teleoperation flags (not hardware state)
     follower.py       Follower, RealFollower, VirtualFollower, make_follower
+
+The FK-to-Godot UDP path is implemented by ``robot_control.fk_runner`` and
+``robot_control.stras_receiver.gd``; it does not use a follower or actuator.
     compat.py         legacy `EASEfollower` facade with the old method names
 """
 from .errors import (ConnectionFailed, ProtocolError, StrasError,

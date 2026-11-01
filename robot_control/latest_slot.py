@@ -1,8 +1,7 @@
 """Thread-safe single-slot "latest value" holder.
 
-Shared by the input server (writer), the watchdog / control loop (readers),
-and later the follower worker (publishing robot state to the visualizer).
-Knows nothing about networking or controllers.
+Shared by the input server (writer) and the latest-frame consumer.
+Knows nothing about networking or controller semantics.
 """
 from __future__ import annotations
 

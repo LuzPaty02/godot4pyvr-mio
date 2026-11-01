@@ -61,12 +61,12 @@ class Robot_piecewise_curvature:
         self.l = np.asarray(l)
         
     def setOrigin(self, P, nz, nx):
-        self.P = P
-        self.z = nz
+        self.P = np.asarray(P, dtype=float)
+        self.z = np.asarray(nz, dtype=float).copy()
         self.z /= np.linalg.norm(self.z)
-        self.x = nx
+        self.x = np.asarray(nx, dtype=float).copy()
         self.x /= np.linalg.norm(self.x)
-        self.y = np.cross(nz,nx)
+        self.y = np.cross(self.z, self.x)
         
     def getOrigin(self):
         return (self.P, self.x, self.y, self.z)
@@ -121,7 +121,8 @@ class Robot_piecewise_curvature:
         return (shape, tangent, P, True)
   
         
-    def computeCircArc(self,start_P, start_tan, start_n, th, r, l, tipOnly=False):
+    def computeCircArc(self, start_P, start_tan, start_n, th, r, l,
+                       tipOnly=False, n_samples=None):
         '''
         Compute pose of the tip of a circular arc
         
@@ -140,12 +141,26 @@ class Robot_piecewise_curvature:
             dest_norm: normal to the arc plane
         '''
         
+        start_P = np.asarray(start_P, dtype=float)
+        start_tan = np.asarray(start_tan, dtype=float)
+        start_n = np.asarray(start_n, dtype=float)
+        if abs(r) >= 1e12 or np.isinf(r):
+            if tipOnly:
+                dest_P = start_P + float(l) * start_tan
+                return dest_P, start_tan.copy(), np.cross(start_tan, start_n)
+            count = max(2, int(n_samples or 10))
+            distances = np.linspace(0.0, l, num=count)
+            dest_P = start_P + distances[:, None] * start_tan[None, :]
+            dest_tan = np.repeat(start_tan[None, :], count, axis=0)
+            return dest_P, dest_tan, np.cross(start_tan, start_n)
+
         R_th1 = tf.rotation_matrix(th,start_tan)
         u = rotate(R_th1, start_n) 
         n = np.cross(u,start_tan)
         
         el_per_mm = 2
-        num_ = np.max([el_per_mm*l, 10])
+        num_ = max(2, int(n_samples) if n_samples is not None
+               else int(max(el_per_mm * l, 10)))
         
         l_ = np.linspace(0,l,num=num_)
 

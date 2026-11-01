@@ -11,6 +11,10 @@ __pycache__/
 
 # Ignore the heavy python addon binaries (matching your actual folder name: py4godot)
 addons/py4godot/
+# Keep the marker that disables the unused embedded Py4Godot runtime in this app.
+!addons/py4godot/
+addons/py4godot/*
+!addons/py4godot/.gdignore
 
 # ...BUT explicitly make sure Git tracks your custom source Python files
 !PythonFiles/**/*.py

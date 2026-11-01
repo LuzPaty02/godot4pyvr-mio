@@ -5,6 +5,11 @@ attributes.  They are grouped here as named ``JointLimits`` objects inside one
 ``RobotLimits``.
 """
 from __future__ import annotations
+import sys
+
+import numpy as np
+print(np.__file__, getattr(np, "__path__", None), sys.version)
+
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,10 +139,8 @@ class RobotLimits:
             arm, np.radians(rad_arm), max_trans_arm,    # right arm
             arm, np.radians(rad_arm), max_trans_arm,    # left arm
             endo, endo, np.radians(rad_endo), max_trans_endo])  # endoscope
-        # NOTE: the original used the same array for "down" and "up" (the
-        # comments say "min ... vel (neg max)").  Preserved here; if a negative
-        # lower bound was intended, pass ``-vel`` as the lower array.
-        joint_velocity = JointLimits(QP_ORDER, vel.astype(np.float32),
+        # Velocity ranges are signed and symmetric about zero.
+        joint_velocity = JointLimits(QP_ORDER, -vel.astype(np.float32),
                                      vel.astype(np.float32))
 
         q_bound = JointLimits(
