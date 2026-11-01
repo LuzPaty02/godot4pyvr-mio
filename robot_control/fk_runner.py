@@ -15,6 +15,7 @@ from PythonFiles.input_client import PROTOCOL_VERSION
 from robot_control.input_server import InputMessage, InputServer
 from robot_control.latest_slot import Mailbox
 from robot_control.stras.constants import QP_ORDER
+from robot_control.stras.follower import VirtualFollower
 from robot_control.stras.input_mapping import ControllerToConfiguration
 from robot_control.stras.kinematics import Kinematics, ShapeOutput
 from robot_control.stras.limits import RobotLimits
@@ -138,12 +139,18 @@ def main(argv: list[str] | None = None) -> int:
         "--max-fps", type=float, default=30.0,
         help="maximum geometry datagrams per second sent to Godot (default: 30)",
     )
+    parser.add_argument(
+        "--stats-interval", type=float, default=0.0,
+        help="print cumulative input/FK counters every N seconds; 0 disables them (default)",
+    )
     args = parser.parse_args(argv)
     for name in ("input_port", "godot_port"):
         if not 1 <= getattr(args, name) <= 65535:
             parser.error(f"--{name.replace('_', '-')} must be between 1 and 65535")
     if not math.isfinite(args.max_fps) or args.max_fps <= 0.0:
         parser.error("--max-fps must be a finite number greater than zero")
+    if not math.isfinite(args.stats_interval) or args.stats_interval < 0.0:
+        parser.error("--stats-interval must be a finite number greater than or equal to zero")
     geometry_interval = 1.0 / args.max_fps
 
     mailbox: Mailbox[InputMessage] = Mailbox()
@@ -156,11 +163,13 @@ def main(argv: list[str] | None = None) -> int:
     module_main = Path(__file__).resolve().parents[1] / "module_main"
     kinematics = _build_kinematics()
     camera_calibration = _build_camera_calibration(module_main)
-    limits = RobotLimits.default(module_main)
+    limits = RobotLimits.default()
     input_mapping = ControllerToConfiguration(limits.virtual_cs)
+    follower = VirtualFollower(limits=limits)
     sender = GodotGeometrySender(args.godot_host, args.godot_port)
     print(
         f"Listening for local VR pose snapshots on {server.address}; "
+        "updating the simulation-only VirtualFollower; "
         f"streaming FK geometry to {args.godot_host}:{args.godot_port} "
         f"(input protocol v{PROTOCOL_VERSION}; no hardware commands).",
         flush=True,
@@ -175,7 +184,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while True:
             now = time.monotonic()
-            if now - last_stats_report >= 1.0:
+            if (args.stats_interval > 0.0
+                    and now - last_stats_report >= args.stats_interval):
                 stats = server.stats
                 print(
                     "Input UDP: "
@@ -202,6 +212,8 @@ def main(argv: list[str] | None = None) -> int:
                     q = normalized_joints_to_q(message.payload["joints"], limits)
                 else:
                     q = input_mapping.update(message.payload)
+                follower.set_q(q)
+                q = follower.q_config_space
                 shape = kinematics.shape(q)
                 sender.send(message.seq, shape, camera_calibration)
                 processed_frames += 1

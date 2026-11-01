@@ -5,8 +5,10 @@ The Godot project root is `~/Documents/godot/virtual-stras-mio/godot4pyvr-mio/` 
 ## VR-driven STRAS simulation
 
 This is a local simulation loop only: XR poses → simulated `q` → STRAS forward
-kinematics → Godot geometry. It does not connect to a robot, send hardware
-commands, use inverse kinematics, or use the legacy VTK `visualizeFrame()` path.
+kinematics → `VirtualFollower` state → Godot geometry. It does not connect to a
+physical STRAS robot or send robot commands. The VR headset and controllers are
+the only physical hardware in scope; STRAS runs as a software model. The active
+pipeline uses forward kinematics and Godot rendering only.
 
 **Runtime split:** Godot uses GDScript for XR capture, hand markers, and UDP
 transport. The Python FK backend runs separately in the `pyvr` conda environment.
@@ -19,6 +21,8 @@ sends snapshots to `127.0.0.1:9000`; the Python runner sends geometry back to
 `127.0.0.1:9100`. The runner limits geometry output to 30 FPS by default and
 samples the latest input. First tracked poses establish the neutral frame; the
 mapping is absolute and does not integrate velocities or depend on `dt`.
+The runner updates only the in-process `VirtualFollower`; periodic UDP/FK
+counter output is disabled by default (use `--stats-interval 1` to re-enable it).
 
 The mapping is deliberately explicit:
 

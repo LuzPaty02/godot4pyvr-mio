@@ -15,7 +15,7 @@ from robot_control.fk_runner import build_geometry_packet, normalized_joints_to_
 
 
 def test_normalized_joint_positions_map_to_virtual_range_in_qp_order():
-    limits = RobotLimits.default(ROOT / "module_main")
+    limits = RobotLimits.default()
     values = {joint: index / (len(QP_ORDER) - 1) for index, joint in enumerate(QP_ORDER)}
 
     q = normalized_joints_to_q(values, limits)
@@ -35,7 +35,7 @@ def test_normalized_joint_positions_map_to_virtual_range_in_qp_order():
 ])
 def test_invalid_normalized_joint_positions_are_rejected(values):
     with pytest.raises(ValueError):
-        normalized_joints_to_q(values, RobotLimits.default(ROOT / "module_main"))
+        normalized_joints_to_q(values, RobotLimits.default())
 
 
 def test_geometry_packet_matches_godot_receiver_protocol():

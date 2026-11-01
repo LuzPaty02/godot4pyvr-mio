@@ -30,7 +30,7 @@ def frame(left=(0.0, 0.0, 0.0), right=(0.0, 0.0, 0.0),
 
 
 def test_pose_offsets_map_to_expected_q_axes_and_units():
-    limits = RobotLimits.default(ROOT / "module_main").virtual_cs
+    limits = RobotLimits.default().virtual_cs
     mapper = ControllerToConfiguration(limits)
 
     neutral = mapper.update(frame())
@@ -56,7 +56,7 @@ def test_pose_offsets_map_to_expected_q_axes_and_units():
 
 
 def test_mapping_clamps_offsets_and_recalibrates_reconnected_controllers():
-    limits = RobotLimits.default(ROOT / "module_main").virtual_cs
+    limits = RobotLimits.default().virtual_cs
     mapper = ControllerToConfiguration(limits)
     mapper.update(frame())
 

@@ -17,7 +17,6 @@ from typing import Dict, Optional, Union
 
 PathLike = Union[str, os.PathLike]
 
-QP_RANGE_FILE = Path("dicts") / "dofDictRange-qp.txt"
 MODEL_CONFIG_FILE = Path("model_utilities") / "datafolders.txt"
 
 

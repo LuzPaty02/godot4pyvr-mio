@@ -6,7 +6,7 @@
 
 ## Resumen ejecutivo
 
-El objetivo funcional es una simulación local: recibir poses VR, convertir sus offsets respecto de una pose neutral en `q`, calcular las formas STRAS y enviar la geometría a Godot. No se integra velocidad, no se resuelve IK y no se conecta ni envía comandos a hardware.
+El objetivo funcional es una simulación local: el único hardware físico contemplado es el visor VR y sus controladores. Se reciben sus poses, se convierten los offsets respecto de una pose neutral en `q`, se calculan las formas del modelo STRAS y se envía la geometría a Godot. No se conecta a un robot STRAS físico ni se envían comandos a hardware; tampoco se integra velocidad ni se resuelve IK.
 
 El runner activo carga los archivos de configuración del modelo, recibe snapshots XR, aplica el mapeo explícito de `robot_control/stras/input_mapping.py`, limita `q` a los límites virtuales de simulación, calcula `Kinematics.shape(q)` y envía la geometría a Godot. También conserva el modo de entrada `joints` normalizado para pruebas sin headset.
 
