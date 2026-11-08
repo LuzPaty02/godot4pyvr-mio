@@ -2,11 +2,12 @@
 import json
 import socket
 
-PROTOCOL_VERSION = 1
+from robot_control.stras.input.transport_and_validation.input_protocol import PROTOCOL_VERSION
+from robot_control.network_constants import INPUT_PORT, LOOPBACK_HOST
 
 
 class InputClient:
-    def __init__(self, addr=("127.0.0.1", 9000)):
+    def __init__(self, addr=(LOOPBACK_HOST, INPUT_PORT)):
         self._addr = addr
         self._seq = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #AF_INET = IPV4, SOCK_DGRAM = UDP

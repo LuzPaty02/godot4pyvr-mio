@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
 
 from robot_control.stras.constants import QP_ORDER
 from robot_control.stras.follower import VirtualFollower
-from robot_control.stras.limits import RobotLimits
+from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
 
 
 def test_virtual_follower_stores_q_in_qp_order_without_aliasing():

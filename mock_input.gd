@@ -1,8 +1,7 @@
 extends Node3D
 
-const INPUT_HOST := "127.0.0.1"
-const INPUT_PORT := 9000
-const PROTOCOL_VERSION := 1
+const NetworkConstants = preload("res://robot_control/network_constants.gd")
+const ACTIVATION_DELAY_SECONDS := 1.0
 
 var _input_socket := PacketPeerUDP.new()
 var _sequence := 0
@@ -11,16 +10,18 @@ var _elapsed_seconds: float = 0.0
 
 func _ready() -> void:
 	get_viewport().use_xr = false
-	var socket_error := _input_socket.set_dest_address(INPUT_HOST, INPUT_PORT)
+	var socket_error := _input_socket.set_dest_address(
+		NetworkConstants.LOOPBACK_HOST, NetworkConstants.INPUT_PORT)
 	if socket_error != OK:
 		push_error("Could not set mock input UDP destination: %s" % error_string(socket_error))
 	else:
-		print("Mock input sender: sending to %s:%d" % [INPUT_HOST, INPUT_PORT])
+		print("Mock input sender: sending to %s:%d" % [
+			NetworkConstants.LOOPBACK_HOST, NetworkConstants.INPUT_PORT])
 
 
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
-	var active := _elapsed_seconds >= 1.0
+	var active := _elapsed_seconds >= ACTIVATION_DELAY_SECONDS
 	var hand := {
 		"connected": true,
 		"position": {"x": 0.0, "y": 0.0, "z": 0.0},
@@ -35,7 +36,7 @@ func _process(delta: float) -> void:
 	right_hand["grip"] = 1.0 if active else 0.0
 	right_hand["primary"] = {"x": 0.5, "y": 1.0 if active else 0.5}
 	var payload := {
-		"v": PROTOCOL_VERSION,
+		"v": NetworkConstants.INPUT_PROTOCOL_VERSION,
 		"seq": _sequence,
 		"left": hand,
 		"right": right_hand,

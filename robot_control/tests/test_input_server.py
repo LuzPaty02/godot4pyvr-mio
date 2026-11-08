@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from input_server import (ACCEPT, RESTART, STALE, InputServer,
+from robot_control.stras.input.transport_and_validation.input_server import (ACCEPT, RESTART, STALE, InputServer,
                           PacketError, SeqFilter, decode_packet)
-from latest_slot import Mailbox
+from robot_control.stras.input.transport_and_validation.latest_slot import Mailbox
 
 
 def hand():

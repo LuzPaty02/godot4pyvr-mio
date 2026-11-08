@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from latest_slot import Mailbox
+from robot_control.stras.input.transport_and_validation.latest_slot import Mailbox
 
 
 def test_mailbox_get_does_not_consume():

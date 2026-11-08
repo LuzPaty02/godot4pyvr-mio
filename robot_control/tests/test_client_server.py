@@ -14,10 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from PythonFiles.input_client import InputClient
-from PythonFiles.controller_input import ControllerInputReader
-from robot_control.input_server import InputServer
-from robot_control.latest_slot import Mailbox
+from robot_control.stras.input.helpers.input_client import InputClient
+from robot_control.stras.input.helpers.controller_input import ControllerInputReader
+from robot_control.stras.input.transport_and_validation.input_server import InputServer
+from robot_control.stras.input.transport_and_validation.latest_slot import Mailbox
 
 
 def controller_state(trigger=0.5, connected=True, position=(0.0, 0.0, 0.0)):

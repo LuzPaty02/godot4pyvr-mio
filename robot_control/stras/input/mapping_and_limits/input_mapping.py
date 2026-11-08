@@ -5,7 +5,7 @@ from typing import Mapping
 
 import numpy as np
 
-from .constants import QP_ORDER
+from ...constants import QP_ORDER
 from .limits import JointLimits
 from .arm_input_mapping import ArmInputMapper
 from .camera_input_mapping import CameraInputMapper

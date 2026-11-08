@@ -9,9 +9,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from robot_control.stras.constants import QP_ORDER
-from robot_control.stras.kinematics import ShapeOutput
-from robot_control.stras.limits import RobotLimits
-from robot_control.fk_runner import build_geometry_packet, normalized_joints_to_q
+from robot_control.stras.model.kinematics import ShapeOutput
+from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
+from robot_control.stras_vr_simulator import build_geometry_packet, normalized_joints_to_q
 
 
 def test_normalized_joint_positions_map_to_virtual_range_in_qp_order():

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Maintains the section meshes in the world, simulation screen, and preview.
 
-const TubeMeshBuilder = preload("res://robot_control/stras/tube_mesh_builder.gd")
+const TubeMeshBuilder = preload("res://robot_control/stras/visualization/tube_mesh_builder.gd")
 
 var robot_to_godot: Basis = Basis.IDENTITY
 var tube_radius_mm: float = 2.0

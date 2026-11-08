@@ -8,11 +8,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from robot_control.stras.constants import QP_ORDER
-from robot_control.stras.input_mapping import (
+from robot_control.stras.input.mapping_and_limits.input_mapping import (
     ARM_BEND_FULL_SCALE_M,
     ControllerToConfiguration,
 )
-from robot_control.stras.limits import RobotLimits
+from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
 
 
 def controller(position, connected=True):

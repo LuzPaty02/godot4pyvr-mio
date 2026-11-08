@@ -15,7 +15,7 @@ transport. The Python FK backend runs separately in the `pyvr` conda environment
 Py4Godot is intentionally excluded from this Godot project; do not install the
 model's scientific Python dependencies into Godot's bundled interpreter.
 
-Start WiVRn, then run `python -m robot_control.fk_runner` from the project root
+Start WiVRn, then run `python -m robot_control.stras_vr_simulator` from the project root
 in the `pyvr` environment. Start the Godot project with OpenXR enabled. Godot
 sends snapshots to `127.0.0.1:9000`; the Python runner sends geometry back to
 `127.0.0.1:9100`. The runner limits geometry output to 30 FPS by default and
@@ -80,7 +80,7 @@ Start `python -m robot_control.input_server` from the project root in the
 (F6). The native GDScript mock sends neutral frames for one second, then holds
 the simulated right grip and moves the right stick upward. Look for increasing
 sequence numbers and `R.grip=1.0` in the receiver output. Do not run this test
-server at the same time as `fk_runner`; both listen on port 9000.
+server at the same time as `stras_vr_simulator`; both listen on port 9000.
 
 
 Godot does not need the `pyvr` conda environment or a Python `PYTHONPATH`.

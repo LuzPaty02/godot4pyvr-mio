@@ -1,14 +1,12 @@
 extends Node3D
 
-const INPUT_HOST := "127.0.0.1"
-const INPUT_PORT := 9000
-const PROTOCOL_VERSION := 1
+const NetworkConstants = preload("res://robot_control/network_constants.gd")
+const StrasVisualizationConstants = preload(
+	"res://robot_control/stras/visualization/visualization_constants.gd")
 
 var _input_socket := PacketPeerUDP.new()
 var _input_sequence := 0
 var _robot_body_anchor_set := false
-
-const ROBOT_BELOW_HEAD_METRES := 0.65
 
 
 func _ready() -> void:
@@ -17,12 +15,15 @@ func _ready() -> void:
 	get_viewport().transparent_bg = true
 	RenderingServer.set_default_clear_color(Color(0, 0, 0, 0))
 	print("Native: Composition layer defaults set to alpha zero clear.")
-	var socket_error := _input_socket.set_dest_address(INPUT_HOST, INPUT_PORT)
+	var socket_error := _input_socket.set_dest_address(
+		NetworkConstants.LOOPBACK_HOST, NetworkConstants.INPUT_PORT)
 	if socket_error != OK:
 		push_error("Could not set VR input UDP destination (%s:%d): %s" % [
-			INPUT_HOST, INPUT_PORT, error_string(socket_error)])
+			NetworkConstants.LOOPBACK_HOST, NetworkConstants.INPUT_PORT,
+			error_string(socket_error)])
 	else:
-		print("Native: Sending VR input snapshots to %s:%d." % [INPUT_HOST, INPUT_PORT])
+		print("Native: Sending VR input snapshots to %s:%d." % [
+			NetworkConstants.LOOPBACK_HOST, NetworkConstants.INPUT_PORT])
 	$XRRig/XROrigin3D/LeftHand.show_when_tracked = false
 	$XRRig/XROrigin3D/RightHand.show_when_tracked = false
 
@@ -39,7 +40,7 @@ func _process(_delta: float) -> void:
 	var xr_camera: XRCamera3D = $XRRig/XROrigin3D/XRCamera3D
 	_anchor_robot_to_body(xr_camera)
 	var payload := {
-		"v": PROTOCOL_VERSION,
+		"v": NetworkConstants.INPUT_PROTOCOL_VERSION,
 		"seq": _input_sequence,
 		"left": _controller_payload(left_hand),
 		"right": _controller_payload(right_hand),
@@ -56,10 +57,17 @@ func _process(_delta: float) -> void:
 
 
 func _anchor_robot_to_body(xr_camera: XRCamera3D) -> void:
-	if _robot_body_anchor_set or xr_camera.global_position.length() < 0.4:
+	var head_distance := xr_camera.global_position.length()
+	var head_is_near_origin := (
+		head_distance < StrasVisualizationConstants.ROBOT_ANCHOR_MIN_HEAD_DISTANCE_METRES
+	)
+	if _robot_body_anchor_set or head_is_near_origin:
 		return
 	var robot_geometry: Node3D = $World/RobotGeometry
-	var body_position := xr_camera.global_position + Vector3.DOWN * ROBOT_BELOW_HEAD_METRES
+	var body_position := (
+		xr_camera.global_position
+		+ Vector3.DOWN * StrasVisualizationConstants.ROBOT_BELOW_HEAD_METRES
+	)
 	var robot_yaw := xr_camera.global_transform.basis.get_euler().y
 	# Preserve model X (so right/left stay on the correct sides), preserve Y,
 	# and flip model +Z to Godot's camera-forward -Z before applying headset yaw.

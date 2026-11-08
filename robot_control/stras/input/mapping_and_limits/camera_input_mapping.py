@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Mapping
 
-from .constants import QP_ORDER
+from ...constants import QP_ORDER
 from .limits import JointLimits
 from .mapping_math import (
     CAMERA_POSITION_FULL_SCALE_M,

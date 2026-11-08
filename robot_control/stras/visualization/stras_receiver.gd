@@ -1,11 +1,12 @@
 extends Node3D
 ## Coordinates the STRAS geometry stream, renderer, and XR camera display.
 
-const GeometryUdpReceiver = preload("res://robot_control/stras/geometry_udp_receiver.gd")
-const RobotGeometryRenderer = preload("res://robot_control/stras/robot_geometry_renderer.gd")
-const StrasCameraDisplay = preload("res://robot_control/stras/stras_camera_display.gd")
+const GeometryUdpReceiver = preload("res://robot_control/stras/visualization/geometry_udp_receiver.gd")
+const RobotGeometryRenderer = preload("res://robot_control/stras/visualization/robot_geometry_renderer.gd")
+const StrasCameraDisplay = preload("res://robot_control/stras/visualization/stras_camera_display.gd")
+const NetworkConstants = preload("res://robot_control/network_constants.gd")
 
-@export var port: int = 9100
+@export var port: int = NetworkConstants.GEOMETRY_PORT
 
 ## Fixed robot-frame -> Godot-frame rotation (Godot is Y-up, right-handed).
 ## Example, robot Z-up -> Godot Y-up:
@@ -37,8 +38,6 @@ const StrasCameraDisplay = preload("res://robot_control/stras/stras_camera_displ
 @export var endoscope_preview_size: Vector2i = Vector2i(320, 240)
 
 @export var last_frame: int = -1
-
-const PROTOCOL_VERSION := 1
 
 var _logged_first_frame := false
 var _udp_receiver
@@ -76,7 +75,7 @@ func _ready() -> void:
 
 
 func _on_geometry_frame_received(message: Dictionary) -> void:
-	if int(message.get("v", 0)) != PROTOCOL_VERSION:
+	if int(message.get("v", 0)) != NetworkConstants.GEOMETRY_PROTOCOL_VERSION:
 		push_warning("Unsupported message version: %s" % str(message.get("v")))
 		return
 	last_frame = int(message.get("frame", -1))

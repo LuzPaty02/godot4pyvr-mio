@@ -27,7 +27,7 @@ El vector `q` usa el orden `[BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET]`. Las ent
 
 ## Etapas y transformaciones
 
-1. **Captura XR en Godot.** `main.gd` habilita el viewport XR y el fondo transparente, y captura cada frame las poses de ambas manos, posición/yaw de la cámara XR y `dt`. Los marcadores de las manos también se crean en GDScript. `xr_init.gd` marca el viewport como XR desde la entrada al árbol.
+1. **Captura XR en Godot.** `main.gd` habilita el viewport XR y el fondo transparente, y captura cada frame las poses de ambas manos, posición/yaw de la cámara XR y `dt`. Los marcadores de las manos también se crean en GDScript.
 
 2. **Transporte Godot → Python.** `main.gd` construye un paquete JSON v1 con número de secuencia y lo envía usando `PacketPeerUDP` a `127.0.0.1:9000`. No se usa un intérprete Python embebido en Godot.
 
@@ -45,12 +45,12 @@ El vector `q` usa el orden `[BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET]`. Las ent
 
 | Área | Archivos / rol |
 |---|---|
-| Escena XR, lectura y transporte UDP nativo | [`main.gd`](main.gd), [`xr_init.gd`](xr_init.gd), [`main.tscn`](main.tscn) |
-| Backend Python → Godot | [`robot_control/input_server.py`](robot_control/input_server.py), [`robot_control/latest_slot.py`](robot_control/latest_slot.py), [`robot_control/fk_runner.py`](robot_control/fk_runner.py) |
-| Runner FK y límites | [`robot_control/fk_runner.py`](robot_control/fk_runner.py), [`robot_control/stras/limits.py`](robot_control/stras/limits.py), [`robot_control/stras/kinematics.py`](robot_control/stras/kinematics.py) |
+| Escena XR, lectura y transporte UDP nativo | [`main.gd`](main.gd), [`main.tscn`](main.tscn) |
+| Backend Python → Godot | [`robot_control/input_server.py`](robot_control/input_server.py), [`robot_control/latest_slot.py`](robot_control/latest_slot.py), [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py) |
+| Runner FK y límites | [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py), [`robot_control/stras/limits.py`](robot_control/stras/limits.py), [`robot_control/stras/kinematics.py`](robot_control/stras/kinematics.py) |
 | Modelo y configuración | [`module_main/model_utilities/stras_model.py`](module_main/model_utilities/stras_model.py), [`module_main/model_utilities/robot_config_right.txt`](module_main/model_utilities/robot_config_right.txt), [`module_main/model_utilities/robot_config_left.txt`](module_main/model_utilities/robot_config_left.txt), [`module_main/model_utilities/robot_config_endoscope.txt`](module_main/model_utilities/robot_config_endoscope.txt) |
-| Visualización de geometría STRAS en Godot | [`robot_control/fk_runner.py`](robot_control/fk_runner.py) emite frames UDP; [`robot_control/stras_receiver.gd`](robot_control/stras_receiver.gd) construye los tubos en el puerto 9100. |
-| Pruebas y entrada simulada | [`mock_input.tscn`](mock_input.tscn), [`mock_input.gd`](mock_input.gd), [`robot_control/tests/test_client_server.py`](robot_control/tests/test_client_server.py), [`robot_control/tests/test_input_server.py`](robot_control/tests/test_input_server.py), [`robot_control/tests/test_kinematics.py`](robot_control/tests/test_kinematics.py), [`robot_control/tests/test_fk_runner.py`](robot_control/tests/test_fk_runner.py), más prueba de mailbox. |
+| Visualización de geometría STRAS en Godot | [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py) emite frames UDP; [`robot_control/stras_receiver.gd`](robot_control/stras_receiver.gd) construye los tubos en el puerto 9100. |
+| Pruebas y entrada simulada | [`mock_input.tscn`](mock_input.tscn), [`mock_input.gd`](mock_input.gd), [`robot_control/tests/test_client_server.py`](robot_control/tests/test_client_server.py), [`robot_control/tests/test_input_server.py`](robot_control/tests/test_input_server.py), [`robot_control/tests/test_kinematics.py`](robot_control/tests/test_kinematics.py), [`robot_control/tests/test_stras_vr_simulator.py`](robot_control/tests/test_stras_vr_simulator.py), más prueba de mailbox. |
 
 ## Estado y límites observados
 
@@ -74,4 +74,4 @@ El árbol de trabajo puede contener cambios locales además de esta implementaci
 
 ## Lectura recomendada
 
-Para comprender el recorrido en orden: `main.gd` → UDP/9000 → `robot_control/input_server.py` → `robot_control/fk_runner.py` → `robot_control/stras/input_mapping.py` → `robot_control/stras/kinematics.py` → UDP/9100 → `robot_control/stras_receiver.gd`.
+Para comprender el recorrido en orden: `main.gd` → UDP/9000 → `robot_control/input_server.py` → `robot_control/stras_vr_simulator.py` → `robot_control/stras/input_mapping.py` → `robot_control/stras/kinematics.py` → UDP/9100 → `robot_control/stras_receiver.gd`.

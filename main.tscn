@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c3prlatwxbdbn"]
 
 [ext_resource type="Script" uid="uid://n8qofv3kxjcm" path="res://main.gd" id="1_ig7tw"]
-[ext_resource type="Script" uid="uid://d8mtg64pskn0" path="res://robot_control/stras_receiver.gd" id="3_stras_receiver"]
+[ext_resource type="Script" uid="uid://d8mtg64pskn0" path="res://robot_control/stras/visualization/stras_receiver.gd" id="3_stras_receiver"]
 
 [node name="Main" type="Node3D" unique_id=495166052]
 script = ExtResource("1_ig7tw")

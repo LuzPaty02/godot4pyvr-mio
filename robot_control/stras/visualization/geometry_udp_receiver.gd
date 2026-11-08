@@ -1,9 +1,11 @@
 extends Node
 ## Owns the geometry UDP socket and emits only the newest parsed frame each tick.
 
+const NetworkConstants = preload("res://robot_control/network_constants.gd")
+
 signal frame_received(message: Dictionary)
 
-@export var port: int = 9100
+@export var port: int = NetworkConstants.GEOMETRY_PORT
 
 var _udp := PacketPeerUDP.new()
 var _is_bound := false

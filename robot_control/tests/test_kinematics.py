@@ -8,7 +8,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from robot_control.stras.constants import QP_ORDER
-from robot_control.stras.kinematics import KINEMATICS_ORDER, Kinematics
+from robot_control.stras.model.kinematics import KINEMATICS_ORDER, Kinematics
 from module_main.model_utilities.robot_model import robot_model, robot_twobending
 from module_main.model_utilities.stras_model import StrasModel
 

@@ -32,22 +32,29 @@ import time
 from dataclasses import dataclass, replace
 from typing import Callable, Optional
 
-from robot_control.input_protocol import (
+from robot_control.stras.input.transport_and_validation.input_protocol import (
     PROTOCOL_VERSION,
     InputMessage,
     PacketError,
     decode_packet,
 )
-from robot_control.input_sequence import (
+from robot_control.stras.input.transport_and_validation.input_sequence import (
     ACCEPT,
     RESTART,
     STALE,
     SESSION_RESTART_GAP,
     SeqFilter,
 )
-from robot_control.latest_slot import Mailbox
+from robot_control.stras.input.transport_and_validation.latest_slot import Mailbox
+from robot_control.network_constants import (
+    INPUT_PORT,
+    INPUT_SOCKET_TIMEOUT_SECONDS,
+    LOOPBACK_HOST,
+    MAX_UDP_PACKET_BYTES,
+    SERVER_THREAD_JOIN_TIMEOUT_SECONDS,
+)
 
-MAX_PACKET = 65535
+MAX_PACKET = MAX_UDP_PACKET_BYTES
 
 __all__ = [
     "ACCEPT",
@@ -79,8 +86,8 @@ class InputServer:
     def __init__(
         self,
         mailbox: Mailbox[InputMessage],
-        host: str = "127.0.0.1",
-        port: int = 9000,
+        host: str = LOOPBACK_HOST,
+        port: int = INPUT_PORT,
         clock: Callable[[], float] = time.monotonic,
     ):
         self._mailbox = mailbox
@@ -99,7 +106,7 @@ class InputServer:
             raise RuntimeError("server already started")
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((self._host, self._port))
-        sock.settimeout(0.1)            # lets stop() take effect promptly
+        sock.settimeout(INPUT_SOCKET_TIMEOUT_SECONDS)  # lets stop() take effect promptly
         self._sock = sock
         self._stop.clear()
         self._thread = threading.Thread(target=self._run, name="InputServer", daemon=True)
@@ -108,7 +115,7 @@ class InputServer:
     def stop(self) -> None:
         self._stop.set()
         if self._thread is not None:
-            self._thread.join(timeout=2.0)
+            self._thread.join(timeout=SERVER_THREAD_JOIN_TIMEOUT_SECONDS)
             self._thread = None
         if self._sock is not None:
             self._sock.close()
@@ -174,7 +181,7 @@ class InputServer:
 if __name__ == "__main__":
     import sys
 
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else INPUT_PORT
     box: Mailbox[InputMessage] = Mailbox()
     with InputServer(box, port=port) as lst:
         print(f"listening on {lst.address}; Ctrl-C to quit")
