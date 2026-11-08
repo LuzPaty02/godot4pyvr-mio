@@ -61,14 +61,18 @@ class StrasModel:
         q_left = q[3:6]
         q_end = q[6:]
 
-        # Get Shape of left and right arm, and endoscope tip pose
+        # Arm shapes are generated in their instrument-base frames. Place them
+        # in the moving endoscope frame, matching computemodels(..., Tb_w=Te).
         Shape_R = self.robright.computeShape(q_right)
         Shape_L = self.robleft.computeShape(q_left)
+        endoscope_pose = self.robend.computeModel(q=q_end, jac=False)
+        Te = endoscope_pose.as_matrix()
+        Shape_R = [section @ Te[:3, :3].T + Te[:3, 3] for section in Shape_R]
+        Shape_L = [section @ Te[:3, :3].T + Te[:3, 3] for section in Shape_L]
         if self.endoscopeShapeFlag:
             Shape_Endo = self.robend.computeShape(q_end)
-        Tip_e = self.robend.computeModel(q=q_end, jac=False)
 
         if self.endoscopeShapeFlag:
-            return Shape_R, Shape_L, Tip_e, Shape_Endo
+            return Shape_R, Shape_L, endoscope_pose, Shape_Endo
         else:
-            return Shape_R, Shape_L, Tip_e,
+            return Shape_R, Shape_L, endoscope_pose,

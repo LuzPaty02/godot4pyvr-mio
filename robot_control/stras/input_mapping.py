@@ -59,31 +59,6 @@ class ControllerToConfiguration:
         if not isinstance(payload, Mapping):
             raise ValueError("input payload must be an object")
 
-        values = {label: 0.0 for label in QP_ORDER}
-        hand_joints = {
-            "right": ("BR", "RR", "TR"),
-            "left": ("BL", "RL", "TL"),
-        }
-        for hand, joints in hand_joints.items():
-            state = payload.get(hand)
-            if not isinstance(state, Mapping):
-                raise ValueError(f"missing or invalid '{hand}' controller")
-            if not state.get("connected", False):
-                self._hand_neutral[hand] = None
-                continue
-            position = _read_vector(state.get("position"), ("x", "y", "z"),
-                                    f"{hand}.position")
-            neutral = self._hand_neutral[hand]
-            if neutral is None:
-                self._hand_neutral[hand] = position
-                neutral = position
-            for joint, current, baseline in zip(joints, position, neutral):
-                index = QP_ORDER.index(joint)
-                values[joint] = _scaled_offset(
-                    current - baseline, POSITION_FULL_SCALE_M,
-                    float(self._limits.lower[index]),
-                    float(self._limits.upper[index]))
-
         camera = payload.get("camera", {})
         if not isinstance(camera, Mapping):
             raise ValueError("camera must be an object")
@@ -99,6 +74,49 @@ class ControllerToConfiguration:
         if self._camera_position_neutral is None:
             self._camera_position_neutral = camera_position
             self._camera_yaw_neutral = yaw
+
+        values = {label: 0.0 for label in QP_ORDER}
+        hand_joints = {
+            "right": ("BR", "RR", "TR"),
+            "left": ("BL", "RL", "TL"),
+        }
+        right_x = math.cos(self._camera_yaw_neutral)
+        right_z = -math.sin(self._camera_yaw_neutral)
+        forward_x = -math.sin(self._camera_yaw_neutral)
+        forward_z = -math.cos(self._camera_yaw_neutral)
+        for hand, joints in hand_joints.items():
+            state = payload.get(hand)
+            if not isinstance(state, Mapping):
+                raise ValueError(f"missing or invalid '{hand}' controller")
+            if not state.get("connected", False):
+                self._hand_neutral[hand] = None
+                continue
+            position = _read_vector(state.get("position"), ("x", "y", "z"),
+                                    f"{hand}.position")
+            neutral = self._hand_neutral[hand]
+            if neutral is None:
+                self._hand_neutral[hand] = position
+                neutral = position
+            for joint, current, baseline in zip(joints, position, neutral):
+                index = QP_ORDER.index(joint)
+                if joint in ("BR", "BL"):
+                    # Measure curvature movement along the user's initial right
+                    # axis, not world X, so turning cannot mirror the controls.
+                    dx = position[0] - neutral[0]
+                    dz = position[2] - neutral[2]
+                    offset = dx * right_x + dz * right_z
+                elif joint in ("TR", "TL"):
+                    # Away from the torso extends the instrument; toward the
+                    # torso retracts it, relative to the initial facing axis.
+                    dx = position[0] - neutral[0]
+                    dz = position[2] - neutral[2]
+                    offset = dx * forward_x + dz * forward_z
+                else:
+                    offset = current - baseline
+                values[joint] = _scaled_offset(
+                    offset, POSITION_FULL_SCALE_M,
+                    float(self._limits.lower[index]),
+                    float(self._limits.upper[index]))
 
         camera_delta = tuple(current - base for current, base in zip(
             camera_position, self._camera_position_neutral))

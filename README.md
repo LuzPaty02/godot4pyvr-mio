@@ -10,7 +10,7 @@ physical STRAS robot or send robot commands. The VR headset and controllers are
 the only physical hardware in scope; STRAS runs as a software model. The active
 pipeline uses forward kinematics and Godot rendering only.
 
-**Runtime split:** Godot uses GDScript for XR capture, hand markers, and UDP
+**Runtime split:** Godot uses GDScript for XR capture and UDP
 transport. The Python FK backend runs separately in the `pyvr` conda environment.
 Py4Godot is intentionally excluded from this Godot project; do not install the
 model's scientific Python dependencies into Godot's bundled interpreter.
@@ -28,8 +28,8 @@ The mapping is deliberately explicit:
 
 | Input offset from neutral | q entry |
 |---|---|
-| Right controller X / Y / Z | `BR` / `RR` / `TR` |
-| Left controller X / Y / Z | `BL` / `RL` / `TL` |
+| Right controller user-right / up / forward-back relative to neutral | `BR` / `RR` / `TR` |
+| Left controller user-right / up / forward-back relative to neutral | `BL` / `RL` / `TL` |
 | XR camera X / Y position | `EBH` / `EBV` |
 | XR camera forward/back position | `ET` (Godot forward is -Z) |
 | XR camera yaw | `ER` |
@@ -38,13 +38,29 @@ For position inputs, 0.1 m reaches the corresponding signed virtual limit; for
 yaw, 90 degrees reaches the signed `ER` limit. First tracked poses establish
 neutral. Offsets are clamped to the virtual simulation limits. `q` uses order
 `BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET`; translations are millimetres,
-rotations radians, and bend values curvatures. The receiver scales sampled model
-points from millimetres to metres. Its robot-to-Godot basis remains an adjustable
-visual coordinate-frame setting. Godot displays a calibrated endoscope preview
-in a small overlay while preserving the OpenXR headset camera. The preview uses
-the endoscope pose and pinhole intrinsics; lens-distortion correction is not
-applied to the generated 3D view. OpenCV is optional for loading intrinsics, but
-is still required for `camera_model` image-rectification operations.
+rotations radians, and bend values curvatures. The receiver renders sampled
+model points and section diameters directly in millimetres, without a display
+scale conversion or tube-thickness exaggeration. Its robot-to-Godot basis
+remains an adjustable visual coordinate-frame setting. The XR scene displays
+the main simulation viewport on a floating screen in front of the user. That
+viewport camera follows the FK endoscope pose and uses the camera calibration's
+intrinsics and image aspect ratio to construct its perspective frustum; lens
+distortion is not applied to this rendered view. The arms' curves are
+transformed by the internally computed endoscope pose, so the view looks from
+the endoscope toward the instrument channels; the endoscope tube itself is not
+rendered. The screen follows the headset and does not replace its view. The
+OpenXR headset camera remains the user's viewpoint and its pose drives the
+simulated endoscope joints. The optional corner preview can still be enabled
+separately. OpenCV remains optional for loading intrinsics but required for
+`camera_model` image-rectification operations.
+
+On startup, the arms' model frame is anchored once at the initial tracked head
+position, about 65 cm below it as an approximate torso/channel origin,
+and oriented toward the user's initial facing direction. This is a fixed world
+anchor (there is no body tracker); restart/recenter the scene to place it again.
+Moving either hand forward, away from the torso, extends that arm; moving it
+back toward the torso retracts it. The arm insertion offset is measured along
+the initial head-forward direction so the sign remains intuitive after turning.
 
 The runner also retains a normalized `joints` input format for scripted tests;
 those values must include all ten labels in `[0, 1]`.

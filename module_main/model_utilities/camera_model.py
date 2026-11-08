@@ -2,10 +2,7 @@ import numpy as np
 from scipy.io import loadmat
 import math
 
-try:
-    import cv2
-except ImportError:  # Intrinsics are still useful to 3D renderers without OpenCV.
-    cv2 = None
+import cv2
 
 
 class camera_model:

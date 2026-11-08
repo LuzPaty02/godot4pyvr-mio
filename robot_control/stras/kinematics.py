@@ -75,14 +75,25 @@ class ModelOutput:
         """First ten entries, in the order ``StrasModel.computemodels`` returns."""
         return tuple(getattr(self, f) for f in self.FIELDS[:10])
 
+    @property
+    def Tr_w(self) -> np.ndarray:
+        """Right-arm tip pose in the world/fixed frame (legacy name: ``Tr_0``)."""
+        return self.Tr_0
+
+    @property
+    def Tl_w(self) -> np.ndarray:
+        """Left-arm tip pose in the world/fixed frame (legacy name: ``Tl_0``)."""
+        return self.Tl_0
+
 
 @dataclass(frozen=True)
 class ShapeOutput:
     """Polyline geometry for rendering.
 
-    ``*_sections``: one (10, 3) array per model section, in the endoscope frame
-    for the arms. ``tip_e``: 4x4 endoscope tip pose. ``endoscope_sections`` is
-    only filled when the underlying model has ``endoscopeShapeFlag`` on.
+    ``*_sections``: one (10, 3) array per model section, transformed into the
+    fixed/world frame using the endoscope pose. ``tip_e``: 4x4 endoscope tip
+    pose. ``endoscope_sections`` is only filled when the underlying model has
+    ``endoscopeShapeFlag`` on.
     """
 
     right_sections: tuple[np.ndarray, ...]
@@ -123,7 +134,7 @@ class Kinematics:
 
     def compute(self, q: Any) -> ModelOutput:
         out = self._model.computemodels(self.prepare_q(q))
-        (Tr_e, Jr_e, Tl_e, Jl_e, Tr_0, Jr_0, Tl_0, Jl_0, Te, Je, _jzr_e, zr_e) = out
+        (Tr_e, Jr_e, Tl_e, Jl_e, Tr_0, Jr_0, Tl_0, Jl_0, Te, Je, _, zr_e) = out
         return ModelOutput(*(_ro(x) for x in
                              (Tr_e, Jr_e, Tl_e, Jl_e, Tr_0, Jr_0, Tl_0, Jl_0, Te, Je, zr_e)))
 

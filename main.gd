@@ -6,6 +6,9 @@ const PROTOCOL_VERSION := 1
 
 var _input_socket := PacketPeerUDP.new()
 var _input_sequence := 0
+var _robot_body_anchor_set := false
+
+const ROBOT_BELOW_HEAD_METRES := 0.65
 
 
 func _ready() -> void:
@@ -20,8 +23,8 @@ func _ready() -> void:
 			INPUT_HOST, INPUT_PORT, error_string(socket_error)])
 	else:
 		print("Native: Sending VR input snapshots to %s:%d." % [INPUT_HOST, INPUT_PORT])
-	_setup_hand_marker($XRRig/XROrigin3D/LeftHand, Color.GREEN)
-	_setup_hand_marker($XRRig/XROrigin3D/RightHand, Color.BLUE)
+	$XRRig/XROrigin3D/LeftHand.show_when_tracked = false
+	$XRRig/XROrigin3D/RightHand.show_when_tracked = false
 
 	var xr_interface = XRServer.find_interface("OpenXR")
 	if xr_interface:
@@ -34,6 +37,7 @@ func _process(_delta: float) -> void:
 	var left_hand: XRController3D = $XRRig/XROrigin3D/LeftHand
 	var right_hand: XRController3D = $XRRig/XROrigin3D/RightHand
 	var xr_camera: XRCamera3D = $XRRig/XROrigin3D/XRCamera3D
+	_anchor_robot_to_body(xr_camera)
 	var payload := {
 		"v": PROTOCOL_VERSION,
 		"seq": _input_sequence,
@@ -51,22 +55,24 @@ func _process(_delta: float) -> void:
 		push_warning("Could not send VR input UDP packet: %s" % error_string(send_error))
 
 
+func _anchor_robot_to_body(xr_camera: XRCamera3D) -> void:
+	if _robot_body_anchor_set or xr_camera.global_position.length() < 0.4:
+		return
+	var robot_geometry: Node3D = $World/RobotGeometry
+	var body_position := xr_camera.global_position + Vector3.DOWN * ROBOT_BELOW_HEAD_METRES
+	var robot_yaw := xr_camera.global_transform.basis.get_euler().y
+	# Preserve model X (so right/left stay on the correct sides), preserve Y,
+	# and flip model +Z to Godot's camera-forward -Z before applying headset yaw.
+	var model_to_forward := Basis(Vector3.RIGHT, Vector3.UP, Vector3.FORWARD)
+	var body_basis := Basis(Vector3.UP, robot_yaw) * model_to_forward
+	# Anchor once at the tracked head pose as a torso proxy; do not alter camera calibration.
+	robot_geometry.global_transform = Transform3D(body_basis, body_position)
+	_robot_body_anchor_set = true
+	print("Native: Robot geometry anchored below the initial XR head pose.")
+
+
 func _exit_tree() -> void:
 	_input_socket.close()
-
-
-func _setup_hand_marker(controller: XRController3D, color: Color) -> void:
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.name = "TrackedHandMarker"
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.025
-	sphere.height = 0.05
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	mesh_instance.mesh = sphere
-	mesh_instance.material_override = material
-	controller.show_when_tracked = true
-	controller.add_child(mesh_instance)
 
 
 func _controller_payload(controller: XRController3D) -> Dictionary:
