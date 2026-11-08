@@ -77,7 +77,8 @@ Las entradas son offsets absolutos respecto a una pose neutral; no se integra ve
 El mapeo se realiza con `ControllerToConfiguration` y `RobotLimits`.
 
 - Offset lateral y vertical de la mano define curva y ángulo del plano de flexión.
-- Desplazamiento longitudinal controla inserción del brazo.
+- El giro relativo de muñeca alrededor del eje local -Z se suma al ángulo del plano, con sensibilidad angular 1:1 y simétrica.
+- Desplazamiento longitudinal controla inserción del brazo alrededor de una posición inicial visible de 50 mm (±20 mm de recorrido simétrico).
 - Movimiento de la cámara XR mapea `EBH`, `EBV`, `ET` y `ER`.
 - La primera pose capturada se usa como referencia neutra; todo el resto trabaja en offsets desde allí.
 - A nivel de detalles de percepción: el eje vertical de Godot usa +Y y se corrige al mapearlo para mantener la convención del modelo calibrado.

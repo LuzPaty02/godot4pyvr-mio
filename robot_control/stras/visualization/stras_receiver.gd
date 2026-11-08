@@ -1,9 +1,9 @@
 extends Node3D
 ## Coordinates the STRAS geometry stream, renderer, and XR camera display.
 
-const GeometryUdpReceiver = preload("res://robot_control/stras/visualization/geometry_udp_receiver.gd")
-const RobotGeometryRenderer = preload("res://robot_control/stras/visualization/robot_geometry_renderer.gd")
-const StrasCameraDisplay = preload("res://robot_control/stras/visualization/stras_camera_display.gd")
+const GeometryUdpReceiver = preload("res://robot_control/stras/visualization/network/geometry_udp_receiver.gd")
+const RobotGeometryRenderer = preload("res://robot_control/stras/visualization/geometry/robot_geometry_renderer.gd")
+const StrasCameraDisplay = preload("res://robot_control/stras/visualization/display/stras_camera_display.gd")
 const NetworkConstants = preload("res://robot_control/network_constants.gd")
 
 @export var port: int = NetworkConstants.GEOMETRY_PORT

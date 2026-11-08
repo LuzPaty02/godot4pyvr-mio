@@ -12,15 +12,21 @@ from .camera_input_mapping import CameraInputMapper
 from .mapping_math import (
     ARM_BEND_FULL_SCALE_M,
     ARM_INSERTION_FULL_SCALE_M,
+    ARM_INSERTION_HOME_MM,
+    ARM_INSERTION_TRAVEL_MM,
     CAMERA_POSITION_FULL_SCALE_M,
+    DEADZONE_M,
     YAW_FULL_SCALE_RAD,
 )
 
 __all__ = [
     "ARM_BEND_FULL_SCALE_M",
     "ARM_INSERTION_FULL_SCALE_M",
+    "ARM_INSERTION_HOME_MM",
+    "ARM_INSERTION_TRAVEL_MM",
     "CAMERA_POSITION_FULL_SCALE_M",
     "ControllerToConfiguration",
+    "DEADZONE_M",
     "YAW_FULL_SCALE_RAD",
 ]
 
@@ -31,8 +37,10 @@ class ControllerToConfiguration:
     The mapping is absolute, not velocity-integrated: each connected hand and
     the camera capture a neutral pose on their first frame. The hands' lateral
     and vertical offsets jointly determine bend magnitude and direction; a
-    15 cm radial offset reaches the curvature bound. Arm insertion uses a
-    25 cm full scale, while camera translation retains a 10 cm full scale.
+    5 mm radial deadzone is rescaled to a 15 cm bend full scale. Arm
+    insertion starts at a 50 mm visible home pose with 20 mm of symmetric
+    travel on a 25 cm hand-motion full scale; camera translation retains a
+    10 cm full scale.
     A 90 degree yaw delta reaches ER's bound.
     """
 

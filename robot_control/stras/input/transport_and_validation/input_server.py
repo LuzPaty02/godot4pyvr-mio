@@ -9,8 +9,9 @@ Packet format (JSON, UTF-8), as produced by input_client.py::
 
 Controller ``position`` is Godot's global position in metres; ``orientation``
 is the global rotation quaternion in xyzw order. The server preserves these
-fields as input data; the FK visualization runner consumes a separate
-normalized ``joints`` mapping and does not perform pose registration or IK.
+fields as input data; the FK runner maps controller offsets and local wrist
+twist into joint configuration unless a packet supplies normalized ``joints``.
+The runner does not perform pose registration or IK.
 
     {"v": 1, "seq": 42,
     "left":  {"connected": true,

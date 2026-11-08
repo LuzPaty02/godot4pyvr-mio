@@ -9,6 +9,13 @@ if str(ROOT) not in sys.path:
 
 from robot_control.stras.simulation.constants import QP_ORDER
 from robot_control.stras.model.kinematics import KINEMATICS_ORDER, Kinematics
+from robot_control.stras.model.model_factory import (
+    build_camera_calibration,
+    build_kinematics,
+)
+from robot_control.stras.input.mapping_and_limits.mapping_math import (
+    ARM_INSERTION_HOME_MM,
+)
 from module_main.model_utilities.robot_model import robot_model, robot_twobending
 from module_main.model_utilities.stras_model import StrasModel
 
@@ -172,3 +179,29 @@ def test_endoscope_rotation_dof_rotates_bend_plane_when_endoscope_is_bent():
     bent_rotated_pose = kinematics.shape(bent_rotated).tip_e
 
     assert not np.allclose(bent_pose, bent_rotated_pose)
+
+
+def test_visible_home_pose_projects_both_distal_arms_inside_floating_screen():
+    kinematics = build_kinematics()
+    calibration = build_camera_calibration(ROOT / "module_main")
+    q = np.zeros(len(QP_ORDER))
+    q[QP_ORDER.index("TR")] = ARM_INSERTION_HOME_MM
+    q[QP_ORDER.index("TL")] = ARM_INSERTION_HOME_MM
+    shape = kinematics.shape(q)
+
+    camera_rotation = shape.tip_e[:3, :3]
+    camera_origin = shape.tip_e[:3, 3]
+    width, height = map(int, calibration.imgSize)
+    scale = 1.5  # StrasReceiver's default simulation_view_scale.
+    for sections in (shape.right_sections, shape.left_sections):
+        points = np.concatenate(sections[1:], axis=0)
+        camera_points = (points - camera_origin) @ camera_rotation
+        assert np.all(camera_points[:, 2] > 0.01)  # Godot viewport near plane, mm.
+        u = (calibration.f[0] * camera_points[:, 0] / camera_points[:, 2]
+             + calibration.c[0])
+        v = (calibration.f[1] * camera_points[:, 1] / camera_points[:, 2]
+             + calibration.c[1])
+        u = calibration.c[0] + (u - calibration.c[0]) / scale
+        v = calibration.c[1] + (v - calibration.c[1]) / scale
+        inside = ((0.0 <= u) & (u < width) & (0.0 <= v) & (v < height))
+        assert inside.sum() >= points.shape[0] * 0.8

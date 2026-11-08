@@ -1,7 +1,7 @@
 extends RefCounted
 ## Creates and updates the floating simulation display and optional preview.
 
-const StrasTeleopHud = preload("res://robot_control/stras/visualization/stras_teleop_hud.gd")
+const StrasTeleopHud = preload("res://robot_control/stras/visualization/display/stras_teleop_hud.gd")
 
 var simulation_screen_distance: float = 1.4
 var simulation_screen_size: Vector2 = Vector2(1.0, 0.53)

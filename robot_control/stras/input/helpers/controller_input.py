@@ -6,8 +6,9 @@ class ControllerInputReader:
 
     ``position`` is supplied from Godot's ``global_position`` in metres;
     ``orientation`` is its global rotation quaternion in xyzw order. These pose
-    fields are retained as XR input data; the FK runner consumes normalized
-    joint positions and does not convert controller poses into robot targets.
+    fields are retained as XR input data. The arm input mapper uses position
+    offsets for bend/insertion and the relative local twist from orientation
+    to rotate the bend plane.
     """
 
     @staticmethod
