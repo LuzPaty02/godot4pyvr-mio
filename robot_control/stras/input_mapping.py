@@ -10,6 +10,7 @@ from .constants import QP_ORDER
 from .limits import JointLimits
 
 POSITION_FULL_SCALE_M = 0.1
+ARM_BEND_FULL_SCALE_M = 0.25
 YAW_FULL_SCALE_RAD = math.pi / 2.0
 
 
@@ -35,12 +36,35 @@ def _scaled_offset(offset: float, full_scale: float, lower: float,
     return ratio * (upper if ratio >= 0.0 else abs(lower))
 
 
+def _map_bend(horizontal: float, vertical: float, full_scale: float,
+              lower: float, upper: float) -> tuple[float, float]:
+    """Convert screen-plane hand movement to signed curvature and bend angle."""
+    distance = math.hypot(horizontal, vertical)
+    if distance < 1e-9:
+        return 0.0, 0.0
+
+    angle = math.atan2(vertical, horizontal)
+    curvature_sign = 1.0
+    if angle > math.pi / 2.0:
+        angle -= math.pi
+        curvature_sign = -1.0
+    elif angle < -math.pi / 2.0:
+        angle += math.pi
+        curvature_sign = -1.0
+
+    magnitude = min(1.0, distance / full_scale)
+    curvature_limit = upper if curvature_sign > 0.0 else abs(lower)
+    return curvature_sign * magnitude * curvature_limit, angle
+
+
 class ControllerToConfiguration:
     """Convert global pose deltas from a captured neutral frame into q.
 
     The mapping is absolute, not velocity-integrated: each connected hand and
-    the camera capture a neutral pose on their first frame. 10 cm reaches the
-    associated position-joint bound; a 90 degree yaw delta reaches the ER bound.
+    the camera capture a neutral pose on their first frame. The hands' lateral
+    and vertical offsets jointly determine bend magnitude and direction; a
+    25 cm radial offset reaches the curvature bound. Hand insertion and camera
+    translation use a 10 cm full scale. A 90 degree yaw delta reaches ER's bound.
     """
 
     def __init__(self, limits: JointLimits):
@@ -97,26 +121,32 @@ class ControllerToConfiguration:
             if neutral is None:
                 self._hand_neutral[hand] = position
                 neutral = position
-            for joint, current, baseline in zip(joints, position, neutral):
-                index = QP_ORDER.index(joint)
-                if joint in ("BR", "BL"):
-                    # Measure curvature movement along the user's initial right
-                    # axis, not world X, so turning cannot mirror the controls.
-                    dx = position[0] - neutral[0]
-                    dz = position[2] - neutral[2]
-                    offset = dx * right_x + dz * right_z
-                elif joint in ("TR", "TL"):
-                    # Away from the torso extends the instrument; toward the
-                    # torso retracts it, relative to the initial facing axis.
-                    dx = position[0] - neutral[0]
-                    dz = position[2] - neutral[2]
-                    offset = dx * forward_x + dz * forward_z
-                else:
-                    offset = current - baseline
-                values[joint] = _scaled_offset(
-                    offset, POSITION_FULL_SCALE_M,
-                    float(self._limits.lower[index]),
-                    float(self._limits.upper[index]))
+            # The model represents a bend in polar form (curvature + plane
+            # angle). Convert lateral/upward controller motion together;
+            # assigning Y to plane angle alone makes vertical motion invisible
+            # whenever curvature is zero. The calibrated OpenCV view has +Y
+            # downward, so negate Godot's +Y-up controller offset.
+            dx = position[0] - neutral[0]
+            dz = position[2] - neutral[2]
+            horizontal = dx * right_x + dz * right_z
+            vertical = neutral[1] - position[1]
+            bend_index = QP_ORDER.index(joints[0])
+            rotation_index = QP_ORDER.index(joints[1])
+            bend, rotation = _map_bend(
+                horizontal, vertical, ARM_BEND_FULL_SCALE_M,
+                float(self._limits.lower[bend_index]),
+                float(self._limits.upper[bend_index]))
+            values[joints[0]] = bend
+            values[joints[1]] = rotation
+
+            # Away from the torso extends the instrument; toward the torso
+            # retracts it, relative to the initial facing axis.
+            insertion_index = QP_ORDER.index(joints[2])
+            insertion_offset = dx * forward_x + dz * forward_z
+            values[joints[2]] = _scaled_offset(
+                insertion_offset, POSITION_FULL_SCALE_M,
+                float(self._limits.lower[insertion_index]),
+                float(self._limits.upper[insertion_index]))
 
         camera_delta = tuple(current - base for current, base in zip(
             camera_position, self._camera_position_neutral))

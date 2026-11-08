@@ -146,3 +146,29 @@ def test_arm_shapes_follow_endoscope_pose_and_match_world_fk():
         shape.left_sections[-1][-1], poses.Tl_w[:3, 3], atol=1e-8)
     np.testing.assert_allclose(
         shape.endoscope_sections[-1][-1], shape.tip_e[:3, 3], atol=1e-8)
+
+
+def test_endoscope_rotation_dof_rotates_bend_plane_when_endoscope_is_bent():
+    model_dir = ROOT / "module_main" / "model_utilities"
+    model = StrasModel(
+        robot_model(str(model_dir / "robot_config_right.txt")),
+        robot_model(str(model_dir / "robot_config_left.txt")),
+        robot_twobending(str(model_dir / "robot_config_endoscope.txt")),
+    )
+    kinematics = Kinematics(model)
+    straight = np.array([0.0, 0.0, 35.0, 0.0, 0.0, 35.0,
+                         0.0, 0.0, 0.0, 20.0])
+    straight_rotated = straight.copy()
+    straight_rotated[8] = 0.3
+    straight_pose = kinematics.shape(straight).tip_e
+    straight_rotated_pose = kinematics.shape(straight_rotated).tip_e
+    np.testing.assert_allclose(straight_pose, straight_rotated_pose, atol=1e-8)
+
+    bent = straight.copy()
+    bent[6] = 0.004
+    bent_rotated = bent.copy()
+    bent_rotated[8] = 0.3
+    bent_pose = kinematics.shape(bent).tip_e
+    bent_rotated_pose = kinematics.shape(bent_rotated).tip_e
+
+    assert not np.allclose(bent_pose, bent_rotated_pose)

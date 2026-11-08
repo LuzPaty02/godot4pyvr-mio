@@ -29,6 +29,9 @@ extends Node3D
 @export var simulation_screen_distance: float = 1.4
 @export var simulation_screen_size: Vector2 = Vector2(1.0, 0.53)
 @export var simulation_screen_vertical_offset: float = 0.10
+## Slightly widen the calibrated endoscope view so instruments remain in frame
+## as they retract. 1.0 is the exact calibration; larger values zoom out.
+@export_range(1.0, 3.0, 0.1) var simulation_view_scale: float = 1.5
 ## Show a calibrated endoscope-camera view without replacing the XR headset view.
 @export var show_endoscope_preview: bool = false
 @export var endoscope_preview_size: Vector2i = Vector2i(320, 240)
@@ -354,12 +357,12 @@ func _update_endoscope_camera(data: Dictionary) -> void:
 	# Model coordinates are millimetres. Keep the near plane very close because
 	# the endoscope camera sits only about 0.5 mm from the arm tips at neutral.
 	var near := 0.01
-	var frustum_height := 2.0 * near * float(height) / fy
+	var frustum_height := 2.0 * near * float(height) / fy * simulation_view_scale
 	var cx := float(intrinsics.get("cx", width / 2.0))
 	var cy := float(intrinsics.get("cy", height / 2.0))
 	var frustum_offset := Vector2(
-		(cx - width / 2.0) * 2.0 * near / fx,
-		(height / 2.0 - cy) * 2.0 * near / fy)
+		(cx - width / 2.0) * 2.0 * near / fx * simulation_view_scale,
+		(height / 2.0 - cy) * 2.0 * near / fy * simulation_view_scale)
 	var far := 1000.0
 	_simulation_camera.set_frustum(frustum_height, frustum_offset, near, far)
 	if _endoscope_camera != null:
