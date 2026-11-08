@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from robot_control.stras.constants import QP_ORDER
-from robot_control.stras.follower import VirtualFollower
+from robot_control.stras.virtual_follower import VirtualFollower
 from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
 
 

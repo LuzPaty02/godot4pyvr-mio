@@ -18,7 +18,7 @@ from robot_control.network_constants import (
     LOOPBACK_HOST,
     RUNNER_IDLE_POLL_INTERVAL_SECONDS,
 )
-from robot_control.stras.follower import VirtualFollower
+from robot_control.stras.virtual_follower import VirtualFollower
 from robot_control.stras.input.mapping_and_limits.input_mapping import ControllerToConfiguration
 from robot_control.stras.input.mapping_and_limits.joint_mapping import normalized_joints_to_q
 from robot_control.stras.model.kinematics import Kinematics
@@ -81,7 +81,7 @@ def _process_message(message: InputMessage, limits: RobotLimits,
         q = input_mapping.update(message.payload)
     follower.set_q(q)
     shape = kinematics.shape(follower.q_config_space)
-    sender.send(message.seq, shape, camera_calibration)
+    sender.send(message.seq, shape, camera_calibration, q=q, limits=limits)
 
 
 def _run_loop(args: argparse.Namespace, mailbox: Mailbox[InputMessage],

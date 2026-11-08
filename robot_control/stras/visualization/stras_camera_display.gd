@@ -1,6 +1,8 @@
 extends RefCounted
 ## Creates and updates the floating simulation display and optional preview.
 
+const StrasTeleopHud = preload("res://robot_control/stras/visualization/stras_teleop_hud.gd")
+
 var simulation_screen_distance: float = 1.4
 var simulation_screen_size: Vector2 = Vector2(1.0, 0.53)
 var simulation_screen_vertical_offset: float = 0.10
@@ -17,6 +19,7 @@ var _owner: Node3D
 var _simulation_viewport: SubViewport
 var _simulation_camera: Camera3D
 var _simulation_screen: MeshInstance3D
+var _teleop_hud: Control
 var _preview_viewport: SubViewport
 var _endoscope_camera: Camera3D
 
@@ -81,6 +84,11 @@ func update_endoscope_camera(data: Dictionary, robot_to_godot: Basis) -> void:
 		_endoscope_camera.set_frustum(frustum_height, frustum_offset, near, far)
 
 
+func update_teleop_hud(values: Dictionary) -> void:
+	if _teleop_hud != null:
+		_teleop_hud.set_values(values)
+
+
 func _setup_simulation_display() -> void:
 	_simulation_viewport = SubViewport.new()
 	_simulation_viewport.name = "SimulationViewport"
@@ -102,6 +110,7 @@ func _setup_simulation_display() -> void:
 	environment.ambient_light_energy = 0.85
 	_simulation_camera.environment = environment
 	_add_camera_headlight(_simulation_camera)
+	_setup_teleop_hud()
 
 	var xr_camera := _owner.get_tree().root.find_child("XRCamera3D", true, false) as XRCamera3D
 	if xr_camera == null:
@@ -120,6 +129,17 @@ func _setup_simulation_display() -> void:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_simulation_screen.material_override = material
 	xr_camera.add_child(_simulation_screen)
+
+
+func _setup_teleop_hud() -> void:
+	var hud_layer := CanvasLayer.new()
+	hud_layer.name = "TeleoperationHudLayer"
+	_simulation_viewport.add_child(hud_layer)
+	_teleop_hud = Control.new()
+	_teleop_hud.name = "TeleoperationHud"
+	_teleop_hud.set_script(StrasTeleopHud)
+	_teleop_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud_layer.add_child(_teleop_hud)
 
 
 func _setup_endoscope_preview() -> void:

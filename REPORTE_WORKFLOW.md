@@ -1,77 +1,156 @@
 # Reporte de workflow y estado del proyecto
 
-**Corte:** 30-10-2026  
-**Rama:** `luz-dev-2` (alineada con `origin/luz-dev-2`)  
-**Alcance objetivo:** entrada normalizada → configuración articular STRAS → cinemática directa → geometría de brazos/endoscopio → visualización Godot. Velocidades, IK y actuación física quedan fuera de alcance.
+**Corte:** 08-11-2026  
+**Rama:** `luz-dev-2`  
+**Objetivo:** flujo local de simulación: entrada XR/controladores → normalización → mapeo a `q` → cinemática directa STRAS → geometría → visualización en Godot. Velocidades, IK y control físico quedan fuera del alcance.
 
 ## Resumen ejecutivo
 
-El objetivo funcional es una simulación local: el único hardware físico contemplado es el visor VR y sus controladores. Se reciben sus poses, se convierten los offsets respecto de una pose neutral en `q`, se calculan las formas del modelo STRAS y se envía la geometría a Godot. No se conecta a un robot STRAS físico ni se envían comandos a hardware; tampoco se integra velocidad ni se resuelve IK.
+El proyecto funciona como una simulación local de STRAS. El visor XR y sus controladores son la única entrada física; la salida de la simulación nunca se envía a un robot real. La lógica de Python recibe snapshots de Godot, normaliza y valida los datos, convierten offsets respecto a una pose neutral en una configuración articulada `q`, calcula la forma del modelo y devuelve geometría para renderizarla en Godot.
 
-El runner activo carga los archivos de configuración del modelo, recibe snapshots XR, aplica el mapeo explícito de `robot_control/stras/input_mapping.py`, limita `q` a los límites virtuales de simulación, calcula `Kinematics.shape(q)` y envía la geometría a Godot. También conserva el modo de entrada `joints` normalizado para pruebas sin headset.
+La arquitectura actual queda dividida en dos capas:
 
-## Flujo de datos de alto nivel
+- Godot: captura XR, serialización UDP y render de la escena/overlay.
+- Python: validación de entrada, mapeo a `q`, cinemática directa y envío de geometría.
+
+## Convención de entrada y normalización
+
+El punto más importante del flujo es que la entrada no se trata como `q` directa, sino como señales normalizadas y luego convertidas a la configuración virtual del robot.
+
+### 1. Normalización de controladores
+
+- `trigger` y `grip` se normalizan a `[0, 1]`.
+- Los sticks primarios/secundarios se preservan como valores firmados en `[-1, 1]` y solo se clampan, no se reescalan a `[0, 1]`.
+- La entrada de prueba `joints` también usa una convención normalizada: cada una de las 10 etiquetas debe existir y cada valor debe estar en `[0, 1]`.
+- Esta entrada normalizada se convierte a rango virtual real mediante `normalized_joints_to_q(...)` antes de entrar a cinemática directa.
+
+Esto hace que el sistema separe claramente dos conceptos:
+
+- entrada de control: valores normalizados o firmados para interacción,
+- estado del robot: `q` real en su rango virtual de simulación.
+
+### 2. HUD teleop y estado normalizado
+
+La geometría emitida a Godot incluye un campo `hud` que reporta los brazos en forma normalizada para depuración y visualización.
+
+- Los valores del HUD cubren `BL`, `RL`, `TL`, `BR`, `RR` y `TR`.
+- Cada articulación se normaliza contra su rango virtual y se clampa a `[0, 1]`.
+- El HUD es una vista auxiliar del estado del robot; no reemplaza la vista VR real del usuario.
+- El overlay de cámara/endoscopio es un panel visual de simulación, no la vista principal del casco.
+
+## Flujo operativo actual
 
 ```mermaid
 flowchart LR
-    A[Controladores y cámara XR] --> B[Captura de poses y dt en Godot]
-    B -->|UDP localhost:9000| C[Python: offsets respecto a neutral]
-    C --> D[Mapeo y límites virtuales: q]
-    D --> E[StrasModel.computeShape(q)]
-    E --> F[Geometría: brazo derecho, brazo izquierdo, endoscopio]
-    F -->|UDP geometría| G[Godot: stras_receiver.gd]
-    G --> H[Visualización]
+    A[Controladores + cámara XR] --> B[Godot: XR capture + UDP JSON]
+    B -->|UDP 127.0.0.1:9000| C[InputServer / Mailbox / SeqFilter]
+    C --> D[ControllerToConfiguration + RobotLimits]
+    D --> E[VirtualFollower + q]
+    E --> F[Kinematics.shape(q)]
+    F --> G[Geometry packet + hud normalized]
+    G -->|UDP 127.0.0.1:9100| H[Godot viewer / floating simulation display]
+    H --> I[HUD teleop + endoscope preview overlay]
 ```
 
-El vector `q` usa el orden `[BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET]`. Las entradas son offsets absolutos desde la pose neutral, no velocidades ni objetivos cartesianos.
+El vector `q` usa el orden:
 
-## Etapas y transformaciones
+`BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET`
 
-1. **Captura XR en Godot.** `main.gd` habilita el viewport XR y el fondo transparente, y captura cada frame las poses de ambas manos, posición/yaw de la cámara XR y `dt`. Los marcadores de las manos también se crean en GDScript.
+Las entradas son offsets absolutos respecto a una pose neutral; no se integra velocidad ni se usa IK.
 
-2. **Transporte Godot → Python.** `main.gd` construye un paquete JSON v1 con número de secuencia y lo envía usando `PacketPeerUDP` a `127.0.0.1:9000`. No se usa un intérprete Python embebido en Godot.
+## Etapas del pipeline
 
-3. **Recepción y selección del frame vigente.** `robot_control/input_server.py` valida JSON, versión, secuencia y presencia de ambas manos. Rechaza paquetes duplicados o atrasados, contabiliza huecos y detecta reinicios del cliente. `robot_control/latest_slot.py` sirve de mailbox de último valor: el consumidor no procesa una cola atrasada.
+### 1. Captura XR en Godot
 
-4. **Mapeo de poses a `q`.** `robot_control/stras/input_mapping.py` captura cada pose neutral al primer frame. Los offsets X/Y de cada controlador forman un vector de curvatura 2D, que se convierte a curvatura y ángulo del plano de flexión (`BR/RR` y `BL/RL`); Z hacia adelante/atrás controla la inserción (`TR/TL`). Así, el movimiento vertical también flexiona un brazo recto y respeta el sentido de pantalla; se invierte Y porque Godot usa +Y hacia arriba y la imagen OpenCV calibrada usa +Y hacia abajo. Un offset radial de mano de 0.15 m alcanza el límite de curvatura; la inserción del brazo usa una escala de 0.25 m y la posición de cámara conserva la escala de 0.1 m. Cámara X/Y → `EBH/EBV`, avance/retroceso → `ET` y yaw → `ER`; 90° alcanza el límite de `ER`. `ER` gira el plano de flexión del endoscopio y solo cambia su pose geométrica si hay flexión (`EBV` o `EBH` distinto de cero); en un endoscopio recto ese giro no es visualmente distinguible. Se limita cada valor con límites virtuales definidos para simulación, no para hardware.
+- `main.gd` y la escena principal toman las poses del visor y los controladores.
+- El flujo de scene/viewport de VR se usa como referencia del usuario.
+- Los datos de control y pose se serializan para enviar al backend Python.
 
-5. **Cinemática directa.** `robot_control/stras/kinematics.py` valida y adapta `q` al `StrasModel`. `shape(q)` produce las secciones geométricas de los brazos y del endoscopio; el runner activa `defineEndoscopeShapeOn()`. No se necesita registro VR→STRAS porque las entradas son valores articulares.
+### 2. Transporte Godot → Python
 
-6. **Salida a Godot.** `GodotGeometrySender` serializa las polilíneas de `ShapeOutput` en el protocolo que espera `robot_control/stras_receiver.gd` (JSON v1, `frame`, `right`, `left`, `endoscope`; puntos en unidades del modelo) y las envía por UDP al puerto 9100. Godot crea/actualiza los tubos; no se envían comandos al robot.
+- El paquete JSON se manda por UDP a `127.0.0.1:9000`.
+- La validación incluye secuencia, versión de protocolo, integridad del paquete y detección de paquetes atrasados o reinicios de sesión.
+- El backend usa `Mailbox` para quedarnos con el último frame vigente, no con una cola desfasada.
 
-7. **Ciclo y cierre.** El flujo se repite por frame. Al salir, el nodo Python cierra el socket UDP de entrada; el runner detiene el receptor y cierra el emisor de geometría.
+### 3. Mapeo a configuración virtual del robot
 
-## Archivos principales por responsabilidad
+El mapeo se realiza con `ControllerToConfiguration` y `RobotLimits`.
 
-| Área | Archivos / rol |
+- Offset lateral y vertical de la mano define curva y ángulo del plano de flexión.
+- Desplazamiento longitudinal controla inserción del brazo.
+- Movimiento de la cámara XR mapea `EBH`, `EBV`, `ET` y `ER`.
+- La primera pose capturada se usa como referencia neutra; todo el resto trabaja en offsets desde allí.
+- A nivel de detalles de percepción: el eje vertical de Godot usa +Y y se corrige al mapearlo para mantener la convención del modelo calibrado.
+
+### 4. Cálculo de cinemática directa
+
+- La configuración virtual `q` entra en `Kinematics.shape(...)`.
+- El resultado es `ShapeOutput`, con geometría para miembros izquierdos, derechos y endoscopio.
+- El simulador mantiene un `VirtualFollower` local que refleja el estado actualizado del modelo sin actuar sobre hardware físico.
+
+### 5. Salida de geometría a Godot
+
+- `GodotGeometrySender` arma un JSON con `frame`, `right`, `left`, `endoscope`, secciones y metadatos de cámara.
+- El paquete se envía a `127.0.0.1:9100`.
+- La geometría se usa para dibujar tubos y la vista de endoscopio en la escena.
+- El campo `hud` usa dimensiones normalizadas para UI y diagnóstico.
+
+### 6. Visualización y overlay
+
+- La vista principal del usuario sigue siendo la del casco XR.
+- La pantalla flotante con la imagen del endoscopio es un overlay visual secundario.
+- Si está habilitado, el preview de endoscopio usa una cámara adicional; no reemplaza la vista real del usuario ni la experiencia del headset.
+
+## Archivo y módulos clave
+
+| Área | Archivos relevantes |
 |---|---|
-| Escena XR, lectura y transporte UDP nativo | [`main.gd`](main.gd), [`main.tscn`](main.tscn) |
-| Backend Python → Godot | [`robot_control/input_server.py`](robot_control/input_server.py), [`robot_control/latest_slot.py`](robot_control/latest_slot.py), [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py) |
-| Runner FK y límites | [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py), [`robot_control/stras/limits.py`](robot_control/stras/limits.py), [`robot_control/stras/kinematics.py`](robot_control/stras/kinematics.py) |
-| Modelo y configuración | [`module_main/model_utilities/stras_model.py`](module_main/model_utilities/stras_model.py), [`module_main/model_utilities/robot_config_right.txt`](module_main/model_utilities/robot_config_right.txt), [`module_main/model_utilities/robot_config_left.txt`](module_main/model_utilities/robot_config_left.txt), [`module_main/model_utilities/robot_config_endoscope.txt`](module_main/model_utilities/robot_config_endoscope.txt) |
-| Visualización de geometría STRAS en Godot | [`robot_control/stras_vr_simulator.py`](robot_control/stras_vr_simulator.py) emite frames UDP; [`robot_control/stras_receiver.gd`](robot_control/stras_receiver.gd) construye los tubos en el puerto 9100. |
-| Pruebas y entrada simulada | [`mock_input.tscn`](mock_input.tscn), [`mock_input.gd`](mock_input.gd), [`robot_control/tests/test_client_server.py`](robot_control/tests/test_client_server.py), [`robot_control/tests/test_input_server.py`](robot_control/tests/test_input_server.py), [`robot_control/tests/test_kinematics.py`](robot_control/tests/test_kinematics.py), [`robot_control/tests/test_stras_vr_simulator.py`](robot_control/tests/test_stras_vr_simulator.py), más prueba de mailbox. |
+| Escena principal y transporte Godot | `main.gd`, `main.tscn` |
+| Servidor UDP y validación | `robot_control/stras/input/transport_and_validation/input_server.py`, `latest_slot.py`, `input_protocol.py` |
+| Simulador y runner FK | `robot_control/stras_vr_simulator.py` |
+| Mapeo de entrada y límites | `robot_control/stras/input/mapping_and_limits/*.py` |
+| Kinemática y modelo | `robot_control/stras/model/*.py`, `module_main/model_utilities/*.py` |
+| Visualización Godot y HUD | `robot_control/stras/visualization/*.gd`, `stras_camera_display.gd` |
+| Pruebas | `robot_control/tests/*.py` |
 
-## Estado y límites observados
+## Estado real del proyecto
 
-### Piezas existentes en el árbol de trabajo
+### Lo que sí está funcionando
 
-- Captura de controladores y poses desde Godot, empaquetado UDP local con secuencia y receptor con validación y manejo de paquetes atrasados.
-- Normalización de controles, transporte de entrada y recepción de paquetes.
-- Runner que mapea snapshots VR a `q`, calcula `Kinematics.shape(q)` y transmite las formas de brazos y endoscopio a Godot.
-- Receptor `stras_receiver.gd` incluido en `main.tscn`, que acepta geometría por UDP/9100 y dibuja tubos en la escena XR.
-- Escena de entrada simulada y pruebas unitarias para transporte, cinemática y runner FK presentes en `robot_control/tests/`.
+- Captura XR desde Godot.
+- Serialización y validación UDP local.
+- Reader/normalizador de inputs del controlador.
+- Mapeo de offsets a `q` virtual.
+- Emisión de geometría de endoscopio y brazos a Godot.
+- HUD normalizado de estado articular.
+- Simulación local sin hardware real.
 
-### Pendientes / restricciones visibles
+### Lo que sigue siendo una restricción
 
-- **Sin actuación física:** el flujo objetivo es simulación y visualización; no envía comandos a un robot real.
-- **Convención visual:** `robot_to_godot` sigue siendo ajustable en el receptor; validar la orientación del modelo al ejecutar en headset.
-- **Verificación:** hay pruebas de unidad para el mapeo, el transporte y FK; su ejecución depende del intérprete Python seleccionado en el entorno.
+- La visualización del endoscopio es un preview y no sustituye la vista principal del usuario.
 
-## Estado de control de versiones
+## Estado de verificación
 
-El árbol de trabajo puede contener cambios locales además de esta implementación. Revisar el diff antes de integrar o compartir.
+La revisión del proyecto en este entorno evidenció que la suite de Python no corre sin preparar el entorno correcto:
+
+- `pytest` en el entorno base falló por dependencias externas del sistema (`launch_testing` / `lark`).
+- con `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`, la colección siguió hasta un error de dependencia del modelo: falta `liegroups`.
+
+Esto indica que la verificación real del proyecto requiere activar el entorno `pyvr` y asegurar que sus dependencias científicas estén instaladas antes de ejecutar la batería de tests.
 
 ## Lectura recomendada
 
-Para comprender el recorrido en orden: `main.gd` → UDP/9000 → `robot_control/input_server.py` → `robot_control/stras_vr_simulator.py` → `robot_control/stras/input_mapping.py` → `robot_control/stras/kinematics.py` → UDP/9100 → `robot_control/stras_receiver.gd`.
+El recorrido principal para entender el sistema es:
+
+`main.gd` → UDP 9000 → `InputServer` → `ControllerToConfiguration` → `VirtualFollower` → `Kinematics.shape` → geometría UDP 9100 → `stras_camera_display.gd` / HUD
+
+## Conclusión
+
+La implementación actual está enfocada en una simulación local visual y de prueba, con una clara separación entre:
+
+- señal de entrada del usuario,
+- valores normalizados de control,
+- configuración virtual del robot `q`,
+- render de geometría y HUD teleop.
+
+Este enfoque es apropiado para un entorno de desarrollo VR sin hardware físico, y resulta especialmente útil para validar el mapeo del input, la cinemática directa y la visualización del endoscopio antes de pasar a una integración más real con robot físico o cirugía teleoperada.

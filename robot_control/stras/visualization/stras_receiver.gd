@@ -83,6 +83,9 @@ func _on_geometry_frame_received(message: Dictionary) -> void:
 		print("STRAS receiver got geometry frame %d" % last_frame)
 		_logged_first_frame = true
 	_renderer.update_frame(message)
+	var hud_data = message.get("hud")
+	if hud_data is Dictionary:
+		_display.update_teleop_hud(hud_data)
 	var camera_data = message.get("camera")
 	if camera_data is Dictionary:
 		_display.update_endoscope_camera(camera_data, robot_to_godot)

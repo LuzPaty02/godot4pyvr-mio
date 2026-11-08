@@ -1,123 +1,152 @@
 # Godot VR / STRAS visualization
 
-The Godot project root is `~/Documents/godot/virtual-stras-mio/godot4pyvr-mio/` (the directory containing `project.godot`).
+This project renders a simulation-only STRAS model driven by XR input. It does not control a physical robot; instead, it maps headset/controller motion into a virtual robot configuration, computes forward kinematics, and streams the resulting geometry back to Godot for visualization.
 
-## VR-driven STRAS simulation
+## Overview
 
-This is a local simulation loop only: XR poses → simulated `q` → STRAS forward
-kinematics → `VirtualFollower` state → Godot geometry. It does not connect to a
-physical STRAS robot or send robot commands. The VR headset and controllers are
-the only physical hardware in scope; STRAS runs as a software model. The active
-pipeline uses forward kinematics and Godot rendering only.
+The runtime is split into two parts:
 
-**Runtime split:** Godot uses GDScript for XR capture and UDP
-transport. The Python FK backend runs separately in the `pyvr` conda environment.
-Py4Godot is intentionally excluded from this Godot project; do not install the
-model's scientific Python dependencies into Godot's bundled interpreter.
+- Godot handles XR capture and UDP transport.
+- Python handles the STRAS model, forward kinematics, and geometry output.
 
-Start WiVRn, then run `python -m robot_control.stras_vr_simulator` from the project root
-in the `pyvr` environment. Start the Godot project with OpenXR enabled. Godot
-sends snapshots to `127.0.0.1:9000`; the Python runner sends geometry back to
-`127.0.0.1:9100`. The runner limits geometry output to 30 FPS by default and
-samples the latest input. First tracked poses establish the neutral frame; the
-mapping is absolute and does not integrate velocities or depend on `dt`.
-The runner updates only the in-process `VirtualFollower`; periodic UDP/FK
-counter output is disabled by default (use `--stats-interval 1` to re-enable it).
+The active pipeline is:
 
-The mapping is deliberately explicit:
+XR poses -> simulated q -> STRAS forward kinematics -> VirtualFollower state -> Godot geometry
 
-| Input offset from neutral | q entry |
-|---|---|
-| Right controller user-right + up/down (combined bend vector); forward/back | `BR` + `RR` / `TR` |
-| Left controller user-right + up/down (combined bend vector); forward/back | `BL` + `RL` / `TL` |
+This is intentionally a local simulation loop. No robot commands are sent to hardware.
+
+## Project layout
+
+- `main.tscn` and `main.gd`: Godot entry scene and runtime glue
+- `mock_input.tscn` and `mock_input.gd`: headset-free UDP mock input for smoke testing
+- `robot_control/`: Python simulation backend and STRAS logic
+- `robot_control/tests/`: Python regression tests for input mapping, kinematics, and client/server behavior
+- `module_main/`: model/calibration data and robot geometry utilities
+
+## Requirements
+
+- Godot 4 with OpenXR enabled
+- WiVRn or another OpenXR runtime for VR tracking
+- Conda environment named `pyvr` for the Python runner
+- Python scientific dependencies installed in that environment, including `liegroups` for the model utilities
+- Linux NVIDIA setup is assumed in the commands below; adjust as needed for your machine
+
+Important:
+
+- Godot does not need the Python environment for this project.
+- The `pyvr` environment is for the Python runner only.
+- Py4Godot is not used here; do not install scientific dependencies into the bundled Godot Python.
+
+## Quick start
+
+### 1. Start the Python runner
+
+From the project root:
+
+```bash
+conda activate pyvr
+python -m robot_control.stras_vr_simulator
+```
+
+This listens for XR snapshots on `127.0.0.1:9000` and streams geometry back to `127.0.0.1:9100`.
+
+The runner sends geometry at up to 30 FPS by default and samples the newest available input. It keeps the internal `VirtualFollower` updated and does not send hardware commands.
+
+### 2. Launch the Godot project
+
+Start the project with OpenXR enabled and run the scene in the editor or standalone mode.
+
+Godot sends local UDP snapshots to the Python runner; the Python process resolves the robot model and returns geometry for visualization.
+
+### 3. Optional: enable statistics
+
+For debugging or verification:
+
+```bash
+python -m robot_control.stras_vr_simulator --stats-interval 1
+```
+
+This prints cumulative input/FK counters periodically.
+
+## Normalized input conventions
+
+This project treats input values as normalized control signals before they are mapped into robot joint space.
+
+- Trigger and grip values are normalized to the range `[0, 1]`.
+- Primary and secondary stick axes are preserved as signed values in `[-1, 1]` and only clamped, not rescaled to `[0, 1]`.
+- The Python runner also supports a normalized `joints` payload for scripted tests: every one of the ten joint labels must be present and each value must be finite and within `[0, 1]`.
+- Those normalized values are converted back to the virtual robot range by `normalized_joints_to_q(...)` before forward kinematics runs.
+
+This is important because the Godot side sends raw XR/controller data, while the Python FK side expects normalized control conventions before converting to physical `q` values.
+
+## Teleop HUD and normalized arm state
+
+The geometry stream includes a `hud` field that reports the arm state in normalized form for debugging and HUD display.
+
+- The HUD values are computed for `BL`, `RL`, `TL`, `BR`, `RR`, and `TR`.
+- Each joint is normalized against its virtual calibration range and then clamped to `[0, 1]`.
+- This makes the HUD easy to visualize, while the actual robot model still keeps its raw joint values in physical units.
+- The teleop UI is not the same as the headset’s real XR view; it is a secondary visualization layer for the simulated endoscope/arm state.
+
+## Input mapping summary
+
+The mapping is absolute and based on the first tracked neutral pose. The values are not integrated over time and do not use velocity estimates.
+
+| Input | Mapped joint(s) |
+| --- | --- |
+| Right controller lateral + vertical offset | `BR` + `RR` / `TR` |
+| Left controller lateral + vertical offset | `BL` + `RL` / `TL` |
 | XR camera X / Y position | `EBH` / `EBV` |
-| XR camera forward/back position | `ET` (Godot forward is -Z) |
+| XR camera forward/back position | `ET` |
 | XR camera yaw | `ER` |
 
-Hand lateral and vertical movement jointly define each arm's bend magnitude
-and direction: the mapping converts that 2D offset into curvature plus bend
-plane angle. This makes up/down movement visibly bend an otherwise straight
-arm, while horizontal movement remains mapped to the matching screen
-direction. Vertical input is sign-adjusted because Godot uses +Y-up while the
-calibrated OpenCV scope image uses +Y-down. A 0.15 m radial hand offset reaches
-the curvature limit; arm forward/back insertion uses a 0.25 m full scale, and
-camera position retains the 0.1 m full scale. For yaw, 90 degrees reaches the
-signed `ER` limit.
-First tracked poses establish neutral. Offsets are clamped to the virtual
-simulation limits. `q` uses order
-`BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET`; translations are millimetres,
-rotations radians, and bend values curvatures. The receiver renders sampled
-model points and section diameters directly in millimetres, without a display
-scale conversion or tube-thickness exaggeration. Its robot-to-Godot basis
-remains an adjustable visual coordinate-frame setting. The XR scene displays
-the main simulation viewport on a floating screen in front of the user. That
-viewport camera follows the FK endoscope pose and uses the camera calibration's
-intrinsics and image aspect ratio to construct its perspective frustum; lens
-distortion is not applied to this rendered view. The arms' curves are
-transformed by the internally computed endoscope pose, so the view looks from
-the endoscope toward the instrument channels; the endoscope tube itself is not
-rendered. The screen follows the headset and does not replace its view. The
-OpenXR headset camera remains the user's viewpoint and its pose drives the
-simulated endoscope joints. The optional corner preview can still be enabled
-separately. OpenCV remains optional for loading intrinsics but required for
-`camera_model` image-rectification operations.
+The q order is:
 
-On startup, the arms' model frame is anchored once at the initial tracked head
-position, about 65 cm below it as an approximate torso/channel origin,
-and oriented toward the user's initial facing direction. This is a fixed world
-anchor (there is no body tracker); restart/recenter the scene to place it again.
-Moving either hand forward, away from the torso, extends that arm; moving it
-back toward the torso retracts it. The arm insertion offset is measured along
-the initial head-forward direction so the sign remains intuitive after turning.
+`BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET`
 
-The runner also retains a normalized `joints` input format for scripted tests;
-those values must include all ten labels in `[0, 1]`.
+Translations are in millimetres, rotations are in radians, and bend values are curvature values.
 
-## Headset-free UDP smoke test
+## Smoke test without VR hardware
 
-Start `python -m robot_control.input_server` from the project root in the
-`pyvr` environment. In Godot, run `mock_input.tscn` with **Run Current Scene**
-(F6). The native GDScript mock sends neutral frames for one second, then holds
-the simulated right grip and moves the right stick upward. Look for increasing
-sequence numbers and `R.grip=1.0` in the receiver output. Do not run this test
-server at the same time as `stras_vr_simulator`; both listen on port 9000.
+You can validate the UDP flow without a headset by running the mock input server and the mock scene.
 
+### Start the UDP listener
 
-Godot does not need the `pyvr` conda environment or a Python `PYTHONPATH`.
-The `pyvr` environment is only for the Python runner.
+```bash
+conda activate pyvr
+python -m robot_control.stras.input.transport_and_validation.input_server
+```
 
+### Run the mock scene in Godot
 
-**Terminal sesion 1**
+- Open `mock_input.tscn`
+- Use Run Current Scene (F6)
 
-- Step 1: Grant Device Permissions to WiVRn:
+The mock scene sends neutral frames for one second, then holds the simulated grip and moves the right stick upward. Watch the terminal for increasing sequence numbers and `R.grip=1.0` output.
 
-```console
+Do not run this test server at the same time as `stras_vr_simulator`; both bind to port `9000`.
+
+## Linux + WiVRn launch notes
+
+### Terminal 1: launch WiVRn
+
+```bash
 flatpak override --user --device=all --share=ipc io.github.wivrn.wivrn
 ```
 
-- Step 2:  Launch WiVRn under the discrete NVIDIA graphic card, by the command:
-```console
+```bash
 flatpak run \
   --env=__NV_PRIME_RENDER_OFFLOAD=1 \
   --env=__GLX_VENDOR_LIBRARY_NAME=nvidia \
   io.github.wivrn.wivrn
 ```
 
-**Terminal sesion 2**
+### Terminal 2: launch Godot with the OpenXR runtime
 
-- Step 1: Go to the path of the binaries of the godot executable:
-```console
+```bash
 cd ~/Documents/godot/godot-bin
-```
 
-- Step 2A: Launch godot while explicitly pointing out the path:
-```console
-cd ~/Documents/godot/godot-bin/
-
-# 1. Clear out Intel Mesa targets from the loader scope completely
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-
-# 2. Select the WiVRn OpenXR runtime
 export XR_RUNTIME_JSON=$HOME/Documents/godot/godot-bin/openxr_wivrn.json
 
 # 3. Apply standard PRIME hardware parameters
@@ -129,17 +158,44 @@ export __GLX_VENDOR_LIBRARY_NAME=nvidia
 ./Godot_v4.7-stable_linux.x86_64 -e --path ~/Documents/godot/virtual-stras-mio/godot4pyvr-mio/
 ```
 
-- Step 2B: Launch godot while explicity pointing out the path and overwritting the video card without the explorer:
-```console
-cd ~/Documents/godot/godot-bin/
+Or run directly without the editor:
+
+```bash
+cd ~/Documents/godot/godot-bin
 
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export __NV_PRIME_RENDER_OFFLOAD=1
 export __NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export CUDA_CACHE_DISABLE=0
-
 export XR_RUNTIME_JSON=$HOME/Documents/godot/godot-bin/openxr_wivrn.json
 
 ./Godot_v4.7-stable_linux.x86_64 --path ~/Documents/godot/virtual-stras-mio/godot4pyvr-mio/ --xr-mode on --rendering-method forward_plus
 ```
+
+## Notes for development
+
+- The project renders the simulation-only model; it does not send commands to a physical STRAS robot.
+- The first tracked poses establish the neutral frame.
+- The robot-to-Godot basis can be adjusted visually as a rendering setting.
+- The endoscope camera viewport is a preview overlay; it does not replace the user’s actual headset view.
+- The runner also supports normalized `joints` payloads for scripted tests, provided all ten labels are present in the `[0, 1]` range.
+
+## Troubleshooting
+
+- If the Python runner cannot bind to the input port, another process may already be using `9000`.
+- If you see no geometry, confirm that the Godot scene is running with OpenXR enabled and that the Python runner is alive.
+- If imports fail with `ModuleNotFoundError: No module named 'liegroups'`, activate the `pyvr` environment and install the project’s scientific dependencies there.
+- For simpler debugging, run the simulator with `--stats-interval 1`.
+- If you are using the mock input path, remember to stop the full simulator before launching the mock listener because both use the same UDP port.
+
+## Tests
+
+Run the project tests from the repo root:
+
+```bash
+pytest -q
+```
+
+This validates the input protocol, mapping logic, kinematics, and client/server behavior.
+

@@ -61,6 +61,24 @@ def test_geometry_packet_matches_godot_receiver_protocol():
     }
 
 
+def test_geometry_packet_includes_clamped_normalized_arm_hud_values():
+    limits = RobotLimits.default()
+    joint_limits = limits.virtual_cs
+    q = (joint_limits.lower + joint_limits.upper) / 2.0
+    q[joint_limits.labels.index("BL")] = joint_limits.lower[
+        joint_limits.labels.index("BL")] - 1.0
+    q[joint_limits.labels.index("RR")] = joint_limits.upper[
+        joint_limits.labels.index("RR")] + 1.0
+    shape = ShapeOutput((np.zeros((2, 3)),), (np.zeros((2, 3)),), np.eye(4))
+
+    packet = build_geometry_packet(1, shape, q=q, limits=limits)
+
+    assert packet["hud"] == {
+        "BL": 0.0, "RL": 0.5, "TL": 0.5,
+        "BR": 0.5, "RR": 1.0, "TR": 0.5,
+    }
+
+
 def test_geometry_packet_includes_calibrated_endoscope_camera():
     class Calibration:
         f = np.array([500.0, 510.0])

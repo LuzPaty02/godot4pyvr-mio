@@ -6,7 +6,7 @@ physical STRAS command interface.
 """
 
 from .constants import QP_ORDER
-from .follower import VirtualFollower
+from .virtual_follower import VirtualFollower
 from .input.mapping_and_limits.input_mapping import ControllerToConfiguration
 from .model.kinematics import Kinematics, ModelOutput, ShapeOutput
 from .input.mapping_and_limits.limits import JointLimits, RobotLimits
