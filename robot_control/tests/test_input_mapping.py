@@ -8,7 +8,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from robot_control.stras.constants import QP_ORDER
-from robot_control.stras.input_mapping import ControllerToConfiguration
+from robot_control.stras.input_mapping import (
+    ARM_BEND_FULL_SCALE_M,
+    ControllerToConfiguration,
+)
 from robot_control.stras.limits import RobotLimits
 
 
@@ -43,15 +46,15 @@ def test_pose_offsets_map_to_expected_q_axes_and_units():
 
     np.testing.assert_array_equal(neutral, np.zeros(len(QP_ORDER)))
     index = {label: QP_ORDER.index(label) for label in QP_ORDER}
-    bend_ratio = np.hypot(0.05, 0.05) / 0.25
+    bend_ratio = np.hypot(0.05, 0.05) / ARM_BEND_FULL_SCALE_M
     assert np.isclose(q[index["BR"]], limits.lower[index["BR"]] * bend_ratio)
     assert np.isclose(q[index["RR"]], np.pi / 4.0)
     # Forward is -Z at yaw 0: moving the right hand forward extends its arm.
-    assert q[index["TR"]] == limits.upper[index["TR"]] / 2
+    assert np.isclose(q[index["TR"]], limits.upper[index["TR"]] * 0.2)
     assert np.isclose(q[index["BL"]], limits.upper[index["BL"]] * bend_ratio)
     assert np.isclose(q[index["RL"]], np.pi / 4.0)
     # Moving the left hand toward the torso retracts its arm to the lower limit.
-    assert q[index["TL"]] == limits.lower[index["TL"]]
+    assert np.isclose(q[index["TL"]], limits.lower[index["TL"]] * 0.4)
     assert q[index["EBH"]] == limits.upper[index["EBH"]]
     assert q[index["EBV"]] == limits.lower[index["EBV"]] / 2
     assert q[index["ER"]] == limits.upper[index["ER"]] / 2
@@ -94,6 +97,14 @@ def test_outward_left_and_right_hand_motion_uses_mirrored_curvature_signs():
 
     assert q[QP_ORDER.index("BR")] > 0.0
     assert q[QP_ORDER.index("BL")] < 0.0
+    assert np.isclose(
+        q[QP_ORDER.index("BR")],
+        limits.upper[QP_ORDER.index("BR")] * 0.05 / ARM_BEND_FULL_SCALE_M,
+    )
+    assert np.isclose(
+        q[QP_ORDER.index("BL")],
+        limits.lower[QP_ORDER.index("BL")] * 0.05 / ARM_BEND_FULL_SCALE_M,
+    )
 
 
 def test_mapping_clamps_offsets_and_recalibrates_reconnected_controllers():
@@ -128,7 +139,13 @@ def test_arm_insertion_uses_initial_user_forward_direction():
         camera=(0.0, 0.0, 0.0), yaw=np.pi / 2.0,
     ))
 
-    assert q[QP_ORDER.index("TR")] == limits.upper[QP_ORDER.index("TR")]
-    assert q[QP_ORDER.index("TL")] == limits.upper[QP_ORDER.index("TL")]
-    assert q[QP_ORDER.index("BR")] == limits.upper[QP_ORDER.index("BR")] * 0.4
-    assert q[QP_ORDER.index("BL")] == limits.upper[QP_ORDER.index("BL")] * 0.4
+    assert np.isclose(q[QP_ORDER.index("TR")], limits.upper[QP_ORDER.index("TR")] * 0.4)
+    assert np.isclose(q[QP_ORDER.index("TL")], limits.upper[QP_ORDER.index("TL")] * 0.4)
+    assert np.isclose(
+        q[QP_ORDER.index("BR")],
+        limits.upper[QP_ORDER.index("BR")] * 0.1 / ARM_BEND_FULL_SCALE_M,
+    )
+    assert np.isclose(
+        q[QP_ORDER.index("BL")],
+        limits.upper[QP_ORDER.index("BL")] * 0.1 / ARM_BEND_FULL_SCALE_M,
+    )

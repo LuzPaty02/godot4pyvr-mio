@@ -9,8 +9,9 @@ import numpy as np
 from .constants import QP_ORDER
 from .limits import JointLimits
 
-POSITION_FULL_SCALE_M = 0.1
-ARM_BEND_FULL_SCALE_M = 0.25
+CAMERA_POSITION_FULL_SCALE_M = 0.1
+ARM_INSERTION_FULL_SCALE_M = 0.25
+ARM_BEND_FULL_SCALE_M = 0.15
 YAW_FULL_SCALE_RAD = math.pi / 2.0
 
 
@@ -63,8 +64,9 @@ class ControllerToConfiguration:
     The mapping is absolute, not velocity-integrated: each connected hand and
     the camera capture a neutral pose on their first frame. The hands' lateral
     and vertical offsets jointly determine bend magnitude and direction; a
-    25 cm radial offset reaches the curvature bound. Hand insertion and camera
-    translation use a 10 cm full scale. A 90 degree yaw delta reaches ER's bound.
+    15 cm radial offset reaches the curvature bound. Arm insertion uses a
+    25 cm full scale, while camera translation retains a 10 cm full scale.
+    A 90 degree yaw delta reaches ER's bound.
     """
 
     def __init__(self, limits: JointLimits):
@@ -144,7 +146,7 @@ class ControllerToConfiguration:
             insertion_index = QP_ORDER.index(joints[2])
             insertion_offset = dx * forward_x + dz * forward_z
             values[joints[2]] = _scaled_offset(
-                insertion_offset, POSITION_FULL_SCALE_M,
+                insertion_offset, ARM_INSERTION_FULL_SCALE_M,
                 float(self._limits.lower[insertion_index]),
                 float(self._limits.upper[insertion_index]))
 
@@ -158,7 +160,7 @@ class ControllerToConfiguration:
                               ("ET", -camera_delta[2])):
             index = QP_ORDER.index(joint)
             values[joint] = _scaled_offset(
-                offset, POSITION_FULL_SCALE_M,
+                offset, CAMERA_POSITION_FULL_SCALE_M,
                 float(self._limits.lower[index]),
                 float(self._limits.upper[index]))
         index = QP_ORDER.index("ER")

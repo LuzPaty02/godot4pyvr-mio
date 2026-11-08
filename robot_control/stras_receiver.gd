@@ -16,8 +16,13 @@ extends Node3D
 ## Fallback radius for flat geometry, expressed in the model's millimetres.
 @export var tube_radius_mm: float = 2.0
 @export_range(3, 32) var radial_segments: int = 12
-@export var right_color: Color = Color(0.90, 0.30, 0.30)
-@export var left_color: Color = Color(0.30, 0.50, 0.90)
+## One color per model section, from proximal shaft to distal tip.
+@export var right_section_colors: PackedColorArray = PackedColorArray([
+	Color(0.025, 0.025, 0.03), Color(0.025, 0.025, 0.03), Color(0.78, 0.79, 0.82),
+])
+@export var left_section_colors: PackedColorArray = PackedColorArray([
+	Color(0.025, 0.025, 0.03), Color(0.025, 0.025, 0.03), Color(0.78, 0.79, 0.82),
+])
 @export var endoscope_color: Color = Color(0.85, 0.85, 0.85)
 ## Section diameters from the STRAS model, in millimetres (VTK's old units).
 @export var right_section_diameters_mm: PackedFloat32Array = PackedFloat32Array([3.5, 3.5, 3.5])
@@ -45,7 +50,7 @@ var _udp := PacketPeerUDP.new()
 var _meshes: Dictionary = {}
 var _simulation_meshes: Dictionary = {}
 var _diameters_mm: Dictionary = {}
-var _colors: Dictionary = {}
+var _section_colors: Dictionary = {}
 var _preview_meshes: Dictionary = {}
 var _simulation_viewport: SubViewport
 var _simulation_root: Node3D
@@ -65,8 +70,8 @@ func _ready() -> void:
 	_setup_simulation_display()
 	if show_endoscope_preview:
 		_setup_endoscope_preview()
-	_add_part("right", right_color, right_section_diameters_mm)
-	_add_part("left", left_color, left_section_diameters_mm)
+	_add_part("right", right_section_colors, right_section_diameters_mm)
+	_add_part("left", left_section_colors, left_section_diameters_mm)
 	if add_default_camera:
 		_add_camera_and_light()
 
@@ -113,12 +118,14 @@ func _set_sections(part: String, sections: Array) -> void:
 				first_valid_section = i
 			last_valid_section = i
 	while instances.size() < sections.size():
-		instances.append(_create_mesh_instance(part, _colors[part]))
+		var section_index := instances.size()
+		var color := _section_color(part, section_index)
+		instances.append(_create_mesh_instance(part, color))
 		_simulation_meshes[part].append(
-			_create_mesh_instance(part, _colors[part], _simulation_root))
+			_create_mesh_instance(part, color, _simulation_root))
 		if _preview_root != null:
 			_preview_meshes[part].append(
-				_create_mesh_instance(part, _colors[part], _preview_root))
+				_create_mesh_instance(part, color, _preview_root))
 	for i in instances.size():
 		if i >= sections.size() or not sections[i] is Array or sections[i].size() < 2:
 			_set_part_mesh(part, i, null)
@@ -219,18 +226,27 @@ func _build_tube(points: PackedVector3Array, radius: float,
 	return st.commit()
 
 
-func _add_part(part_name: String, color: Color, diameters_mm: PackedFloat32Array) -> void:
+func _add_part(part_name: String, colors: PackedColorArray,
+		diameters_mm: PackedFloat32Array) -> void:
 	_meshes[part_name] = []
 	_simulation_meshes[part_name] = []
 	_preview_meshes[part_name] = []
 	_diameters_mm[part_name] = diameters_mm
-	_colors[part_name] = color
+	_section_colors[part_name] = colors
+	var color := _section_color(part_name, 0)
 	_meshes[part_name].append(_create_mesh_instance(part_name, color))
 	_simulation_meshes[part_name].append(
 		_create_mesh_instance(part_name, color, _simulation_root))
 	if _preview_root != null:
 		_preview_meshes[part_name].append(
 			_create_mesh_instance(part_name, color, _preview_root))
+
+
+func _section_color(part_name: String, section_index: int) -> Color:
+	var colors: PackedColorArray = _section_colors[part_name]
+	if section_index < colors.size():
+		return colors[section_index]
+	return Color.BLACK
 
 
 func _create_mesh_instance(part_name: String, color: Color,
@@ -241,6 +257,8 @@ func _create_mesh_instance(part_name: String, color: Color,
 		instance.visible = false
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
+	material.metallic_specular = 0.4
+	material.roughness = 0.4
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # winding-order safe
 	instance.material_override = material
 	if parent == null:
@@ -266,10 +284,13 @@ func _setup_simulation_display() -> void:
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color(0.025, 0.035, 0.055)
+	# Fill the sides facing away from the headlight so the narrow arm tubes
+	# retain their color instead of appearing heavily shadowed.
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.72, 0.76, 0.84)
+	environment.ambient_light_energy = 0.85
 	_simulation_camera.environment = environment
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-35.0, 25.0, 0.0)
-	_simulation_root.add_child(light)
+	_add_camera_headlight(_simulation_camera)
 	# The camera pose and calibrated frustum are updated from each FK frame.
 
 	var xr_camera := get_tree().root.find_child("XRCamera3D", true, false) as XRCamera3D
@@ -302,9 +323,7 @@ func _setup_endoscope_preview() -> void:
 	_endoscope_camera = Camera3D.new()
 	_endoscope_camera.current = true
 	_preview_root.add_child(_endoscope_camera)
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-35.0, 25.0, 0.0)
-	_preview_root.add_child(light)
+	_add_camera_headlight(_endoscope_camera)
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -373,6 +392,13 @@ func _add_camera_and_light() -> void:
 	var cam := Camera3D.new()
 	add_child(cam)
 	cam.look_at_from_position(Vector3(0.0, 0.05, camera_distance), Vector3.ZERO)
-	var light := DirectionalLight3D.new()
-	add_child(light)
-	light.rotation_degrees = Vector3(-45.0, 30.0, 0.0)
+	_add_camera_headlight(cam)
+
+
+func _add_camera_headlight(camera: Camera3D) -> OmniLight3D:
+	var light := OmniLight3D.new()
+	light.position = Vector3.ZERO
+	light.omni_range = 250.0
+	light.light_energy = 1.2
+	camera.add_child(light)
+	return light

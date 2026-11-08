@@ -39,9 +39,10 @@ and direction: the mapping converts that 2D offset into curvature plus bend
 plane angle. This makes up/down movement visibly bend an otherwise straight
 arm, while horizontal movement remains mapped to the matching screen
 direction. Vertical input is sign-adjusted because Godot uses +Y-up while the
-calibrated OpenCV scope image uses +Y-down. A 0.25 m radial hand offset reaches the curvature limit; hand
-forward/back insertion and camera position retain the 0.1 m full scale. For
-yaw, 90 degrees reaches the signed `ER` limit.
+calibrated OpenCV scope image uses +Y-down. A 0.15 m radial hand offset reaches
+the curvature limit; arm forward/back insertion uses a 0.25 m full scale, and
+camera position retains the 0.1 m full scale. For yaw, 90 degrees reaches the
+signed `ER` limit.
 First tracked poses establish neutral. Offsets are clamped to the virtual
 simulation limits. `q` uses order
 `BR, RR, TR, BL, RL, TL, EBV, EBH, ER, ET`; translations are millimetres,
