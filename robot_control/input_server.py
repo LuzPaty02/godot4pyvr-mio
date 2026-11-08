@@ -26,87 +26,45 @@ arrival. Never compare it with a clock from the Godot process.
 
 Run ``python input_server.py`` to print what arrives (use tools/fake_client.py).
 """
-import json
 import socket
 import threading
 import time
 from dataclasses import dataclass, replace
 from typing import Callable, Optional
 
+from robot_control.input_protocol import (
+    PROTOCOL_VERSION,
+    InputMessage,
+    PacketError,
+    decode_packet,
+)
+from robot_control.input_sequence import (
+    ACCEPT,
+    RESTART,
+    STALE,
+    SESSION_RESTART_GAP,
+    SeqFilter,
+)
 from robot_control.latest_slot import Mailbox
 
-PROTOCOL_VERSION = 1
 MAX_PACKET = 65535
-# A seq this far *below* the last accepted one means the client restarted
-# (Godot reloaded; its counter went back to 0), not that a packet arrived late.
-SESSION_RESTART_GAP = 1000
-_HANDS = ("left", "right")
+
+__all__ = [
+    "ACCEPT",
+    "InputMessage",
+    "InputServer",
+    "MAX_PACKET",
+    "PROTOCOL_VERSION",
+    "PacketError",
+    "RESTART",
+    "SESSION_RESTART_GAP",
+    "STALE",
+    "SeqFilter",
+    "ServerStats",
+    "decode_packet",
+]
 
 
-class PacketError(ValueError):
-    """Datagram is not a valid input packet."""
-
-
-# --------------------------------------------------------------------------
-# decoding
-# --------------------------------------------------------------------------
-@dataclass(frozen=True)
-class InputMessage:
-    seq: int
-    payload: dict          # {"left": {...}, "right": {...}} as sent
-    received_at: float     # local time.monotonic() at arrival
-
-
-def decode_packet(data: bytes, received_at: float) -> InputMessage:
-    try:
-        obj = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise PacketError(f"not valid UTF-8 JSON: {exc}") from None
-    if not isinstance(obj, dict):
-        raise PacketError("top level is not an object")
-    if obj.get("v") != PROTOCOL_VERSION:
-        raise PacketError(f"unsupported protocol version: {obj.get('v')!r}")
-    seq = obj.get("seq")
-    if not isinstance(seq, int) or isinstance(seq, bool) or seq < 0:
-        raise PacketError(f"bad seq: {seq!r}")
-    for hand in _HANDS:
-        if not isinstance(obj.get(hand), dict):
-            raise PacketError(f"missing or invalid '{hand}'")
-    payload = {k: v for k, v in obj.items() if k not in ("v", "seq")}
-    return InputMessage(seq=seq, payload=payload, received_at=received_at)
-
-
-# --------------------------------------------------------------------------
-# sequence filtering
-# --------------------------------------------------------------------------
-ACCEPT, STALE, RESTART = "accept", "stale", "restart"
-
-
-class SeqFilter:
-    """Drops old/duplicate packets, counts gaps, notices client restarts."""
-
-    def __init__(self, restart_gap: int = SESSION_RESTART_GAP):
-        self._restart_gap = restart_gap
-        self.last: Optional[int] = None
-
-    def classify(self, seq: int) -> tuple[str, int]:
-        """Returns (verdict, packets_lost_before_this_one)."""
-        if self.last is None:
-            self.last = seq
-            return ACCEPT, 0
-        if seq > self.last:
-            lost = seq - self.last - 1
-            self.last = seq
-            return ACCEPT, lost
-        if self.last - seq > self._restart_gap:
-            self.last = seq
-            return RESTART, 0
-        return STALE, 0            # duplicate or reordered
-
-
-# --------------------------------------------------------------------------
-# server
-# --------------------------------------------------------------------------
 @dataclass(frozen=True)
 class ServerStats:
     received: int = 0     # datagrams seen
@@ -160,7 +118,7 @@ class InputServer:
         self.start()
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, *_: object) -> None:
         self.stop()
 
     @property
@@ -185,7 +143,7 @@ class InputServer:
         sock = self._sock
         while not self._stop.is_set():
             try:
-                data, _addr = sock.recvfrom(MAX_PACKET)
+                data, _ = sock.recvfrom(MAX_PACKET)
             except socket.timeout:
                 continue
             except OSError:
