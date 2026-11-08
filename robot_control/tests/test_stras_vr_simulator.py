@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from robot_control.stras.constants import QP_ORDER
+from robot_control.stras.simulation.constants import QP_ORDER
 from robot_control.stras.model.kinematics import ShapeOutput
 from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
 from robot_control.stras_vr_simulator import build_geometry_packet, normalized_joints_to_q

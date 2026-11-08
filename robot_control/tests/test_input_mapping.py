@@ -2,15 +2,19 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from robot_control.stras.constants import QP_ORDER
+from robot_control.stras.simulation.constants import QP_ORDER
 from robot_control.stras.input.mapping_and_limits.input_mapping import (
     ARM_BEND_FULL_SCALE_M,
     ControllerToConfiguration,
+)
+from robot_control.stras.input.mapping_and_limits.camera_input_mapping import (
+    CameraInputMapper,
 )
 from robot_control.stras.input.mapping_and_limits.limits import RobotLimits
 
@@ -86,6 +90,39 @@ def test_head_yaw_maps_signed_deltas_to_endoscope_rotation_including_wraparound(
 
     assert np.isclose(turned_left[QP_ORDER.index("ER")], 0.2)
     assert np.isclose(turned_right[QP_ORDER.index("ER")], -0.2)
+
+
+def test_camera_mapper_recenter_and_reset_capture_neutral_pose():
+    mapper = CameraInputMapper(RobotLimits.default().virtual_cs)
+    initial = {"position": {"x": 0.0, "y": 0.0, "z": 0.0}, "yaw": 0.0}
+    shifted = {"position": {"x": 0.05, "y": 0.0, "z": 0.0}, "yaw": 0.2}
+
+    mapper.update(initial)
+    assert mapper.update(shifted)["EBH"] != 0.0
+    mapper.recenter(shifted)
+    assert mapper.update(shifted) == {"EBH": 0.0, "EBV": 0.0,
+                                      "ET": 0.0, "ER": 0.0}
+    assert mapper.neutral_yaw == 0.2
+
+    mapper.reset()
+    with pytest.raises(RuntimeError, match="neutral pose has not been captured"):
+        _ = mapper.neutral_yaw
+    assert mapper.update(initial) == {"EBH": 0.0, "EBV": 0.0,
+                                      "ET": 0.0, "ER": 0.0}
+
+
+@pytest.mark.parametrize(
+    "camera",
+    [
+        {"yaw": 0.0},
+        {"position": {"x": 0.0, "y": 0.0, "z": 0.0}},
+    ],
+)
+def test_camera_mapper_requires_position_and_yaw(camera):
+    mapper = CameraInputMapper(RobotLimits.default().virtual_cs)
+
+    with pytest.raises(ValueError):
+        mapper.update(camera)
 
 
 def test_outward_left_and_right_hand_motion_uses_mirrored_curvature_signs():

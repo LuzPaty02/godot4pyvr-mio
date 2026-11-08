@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Mapping
 
-from ...constants import QP_ORDER
+from ...simulation.constants import QP_ORDER
 from .limits import JointLimits
 from .mapping_math import (
     CAMERA_POSITION_FULL_SCALE_M,
@@ -28,19 +28,36 @@ class CameraInputMapper:
             raise RuntimeError("camera neutral pose has not been captured")
         return self._yaw_neutral
 
-    def update(self, camera: Mapping) -> dict[str, float]:
+    @staticmethod
+    def _read_pose(camera: Mapping) -> tuple[tuple[float, float, float], float]:
         if not isinstance(camera, Mapping):
             raise ValueError("camera must be an object")
-        position = read_vector(
-            camera.get("position", {"x": 0.0, "y": 0.0, "z": 0.0}),
-            ("x", "y", "z"), "camera.position")
-        yaw = camera.get("yaw", 0.0)
+        if "position" not in camera:
+            raise ValueError("camera.position is required")
+        if "yaw" not in camera:
+            raise ValueError("camera.yaw is required")
+        position = read_vector(camera["position"], ("x", "y", "z"),
+                               "camera.position")
+        yaw = camera["yaw"]
         if isinstance(yaw, bool) or not isinstance(yaw, (int, float)):
             raise ValueError("camera.yaw must be a finite number")
         yaw = float(yaw)
         if not math.isfinite(yaw):
             raise ValueError("camera.yaw must be a finite number")
-        if self._position_neutral is None:
+        return position, yaw
+
+    def reset(self) -> None:
+        """Clear the captured neutral pose; the next update captures a new one."""
+        self._position_neutral = None
+        self._yaw_neutral = None
+
+    def recenter(self, camera: Mapping) -> None:
+        """Set the neutral pose to the camera's current position and yaw."""
+        self._position_neutral, self._yaw_neutral = self._read_pose(camera)
+
+    def update(self, camera: Mapping) -> dict[str, float]:
+        position, yaw = self._read_pose(camera)
+        if self._position_neutral is None or self._yaw_neutral is None:
             self._position_neutral = position
             self._yaw_neutral = yaw
 

@@ -6,7 +6,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from ...constants import QP_ORDER
+from ...simulation.constants import QP_ORDER
 
 _ARM_BEND_LIMIT = np.pi / (2 * 18.5)
 _ENDOSCOPE_BEND_LIMIT = np.pi / (2 * 185)

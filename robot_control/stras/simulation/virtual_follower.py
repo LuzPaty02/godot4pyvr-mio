@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from .constants import QP_ORDER
-from .input.mapping_and_limits.limits import RobotLimits
+from ..input.mapping_and_limits.limits import RobotLimits
 
 
 class VirtualFollower:

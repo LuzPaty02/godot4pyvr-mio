@@ -6,7 +6,7 @@ from typing import Mapping
 
 import numpy as np
 
-from ...constants import QP_ORDER
+from ...simulation.constants import QP_ORDER
 from .limits import RobotLimits
 
 

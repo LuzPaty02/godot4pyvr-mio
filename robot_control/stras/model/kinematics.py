@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import numpy as np
-from ..constants import QP_ORDER
+from ..simulation.constants import QP_ORDER
 
 # The legacy StrasModel consumes q in the same order used by the QP and
 # follower. Keep this as an alias rather than a second independently-maintained

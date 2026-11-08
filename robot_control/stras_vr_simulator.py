@@ -18,7 +18,7 @@ from robot_control.network_constants import (
     LOOPBACK_HOST,
     RUNNER_IDLE_POLL_INTERVAL_SECONDS,
 )
-from robot_control.stras.virtual_follower import VirtualFollower
+from robot_control.stras.simulation.virtual_follower import VirtualFollower
 from robot_control.stras.input.mapping_and_limits.input_mapping import ControllerToConfiguration
 from robot_control.stras.input.mapping_and_limits.joint_mapping import normalized_joints_to_q
 from robot_control.stras.model.kinematics import Kinematics

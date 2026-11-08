@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Mapping
 
-from ...constants import QP_ORDER
+from ...simulation.constants import QP_ORDER
 from .limits import JointLimits
 from .mapping_math import (
     ARM_BEND_FULL_SCALE_M,
